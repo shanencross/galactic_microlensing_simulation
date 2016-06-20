@@ -6,6 +6,8 @@ import numpy as np
 import astropy.units as units
 from astropy.constants import G, c
 
+import reading_in_star_population
+
 STAR_POP_DIR = os.path.join(sys.path[0], "star_population_tables")
 #STAR_POP_FILENAME = "1466028123.767236.resu"
 #STAR_POP_FILENAME = "1466028463.709599.resu"
@@ -16,42 +18,7 @@ STAR_POP_FILEPATH = os.path.join(STAR_POP_DIR, STAR_POP_FILENAME)
 #STAR_POP_FIELDNAMES_LINE = "  Dist    Mv  CL Typ  LTef  logg Age Mass  B-V    U-B    V-I    V-K    V        mux     muy        Vr    UU      VV      WW   [Fe/H] l           b         Av   Mbol\n"
 
 # Used to detect the start of the line in the input file which contains the fieldnames for the star population table
-STAR_POP_STARTING_FIELDNAME = "Dist" 
-
-def read_star_pop():
-    with open(STAR_POP_FILEPATH, "r") as star_pop_file:
-        print "Reading star population file: %s" % (STAR_POP_FILEPATH)
-        print "Filename: %s" % (STAR_POP_FILENAME)
-        reading_star_table = False
-        star_pop_fieldnames = []
-        star_dict_list = []
-        for line in star_pop_file:
-            split_line = line.split()
-            if not reading_star_table and len(split_line) > 0 and split_line[0] == STAR_POP_STARTING_FIELDNAME:
-                star_pop_fieldnames = split_line
-                reading_star_table = True
-                print "Reached beginning of star table in file"
-
-            elif reading_star_table and split_line == star_pop_fieldnames:
-                reading_star_table = False
-                print "Reached end of star table in file"
-
-            elif reading_star_table:	
-                star_dict = {}
-                split_line = line.split()
-
-                for i in xrange(len(split_line)):
-                    star_pop_fieldname = star_pop_fieldnames[i]
-                    star_dict[star_pop_fieldname] = float(split_line[i])
-                star_dict_list.append(star_dict)
-    
-    element_count = 4
-    for star_dict in star_dict_list[:element_count]:
-        pass
-        print "First %s elements of star dictionary list:" % (element_count)
-        print star_dict
-    print "Star count: %s" % len(star_dict_list)
-    return star_dict_list
+STAR_POP_STARTING_FIELDNAME = "Dist"
 
 def get_angular_Einstein_radius(lens, source):
     D_lens = lens["Dist"] * units.kpc
@@ -62,33 +29,49 @@ def get_angular_Einstein_radius(lens, source):
     theta_E = (theta_E.decompose() * units.rad).to(units.mas)
     return theta_E
 
-def get_angular_velocity(lens, source):
-    D_lens = lens["Dist"] * units.kpc
-    D_source = source["Dist"] * units.kpc
+def convert_angular_velocity_units(mu_unitless):
+    """
+    Input parameter is unitless float of angular velocity that is in meant to be in milliarcseconds per year
+    (but has no astropy units attached to it yet.)
 
-    mu_lens = (lens["mul"] * units.mas/units.yr, lens["mub"] * units.mas/units.yr)
-    mu_source = (source["mul"] * units.mas/units.yr, lens["mub"] * units.mas/units.yr)
+    Returns conversion of this to astropy units of dimensionless angle per year.
+    """
 
-    mu_mag_lens = np.sqrt((mu_lens[0]**2) + (mu_lens[1]**2))
-    mu_mag_source = np.sqrt((mu_source[0]**2) + (mu_source[1]**2))
+    new_mu = (mu_unitless * units.mas).to(units.dimensionless_unscaled, equivalencies=units.dimensionless_angles()) / units.yr
+    return new_mu
 
-    print "mu_mag_lens: %s                   mu_mag_source %s" % (mu_mag_lens, mu_mag_source)
+def convert_angular_to_linear_velocity(distance_unitless, mu_unitless):
+    distance = distance_unitless * units.kpc
 
-    v_lens = tuple([D_lens*x for x in mu_lens])
-    v_source = tuple([D_source*x for x in mu_source])
+    mu = (convert_angular_velocity_units(mu_unitless[0]), convert_angular_velocity_units(mu_unitless[1]))
+    print "mu:", mu
 
-    v_mag_lens = D_lens * mu_mag_lens
-    v_mag_source = D_source * mu_mag_source
-
-    print "v_lens: %s\nv_source: %s" % (v_lens, v_source)
-    print "v_mag_lens: %s                   v_mag_source: %s" % (v_mag_lens, v_mag_source)
+    linear_velocity = tuple([distance * x for x in mu])
     
+    return linear_velocity
+
+def get_relative_angular_velocity(lens, source):
+    dist_unitless_lens = lens["Dist"]
+    dist_unitless_source = source["Dist"]
+    mu_unitless_lens = (lens["mul"], lens["mub"])
+    mu_unitless_source = (source["mul"], source["mub"])
+
+    print "Lens:"
+    v_lens = convert_angular_to_linear_velocity(dist_unitless_lens, mu_unitless_lens)
+    print "Source:"
+    v_source = convert_angular_to_linear_velocity(dist_unitless_source, mu_unitless_source)
+
+    v_mag_lens = np.sqrt(v_lens[0]**2 + v_lens[1]**2)
+    v_mag_source = np.sqrt(v_source[0]**2 + v_source[1]**2)
+
+    print "v_lens:", v_lens
+    print "v_source:", v_source
+    print "v_mag_lens: %s                   v_mag_source: %s" % (v_mag_lens, v_mag_source)
 
     return -1
 
-
 def main():
-    star_list = read_star_pop()
+    star_list = reading_in_star_population.read_star_pop(STAR_POP_FILEPATH, STAR_POP_STARTING_FIELDNAME)
     print
     print "Star count: %s" % len(star_list)
     element_count = 15
@@ -105,15 +88,17 @@ def main():
     source = star_list[source_index]
 
     theta_E = get_angular_Einstein_radius(lens=lens, source=source)
-    omega = get_angular_velocity(lens=lens, source=source)
+    omega = get_relative_angular_velocity(lens=lens, source=source)
 
     print "For lens %s:\n%s" % (lens_index, lens)
     print "Distance: %s            Mass: %s" % (lens["Dist"] * units.kpc, lens["Mass"] * units.solMass)
     print "mu_l: %s                mu_b: %s" % (lens["mul"] * units.mas/units.yr, lens["mub"] * units.mas/units.yr)
+    print "mu_l: %s                mu_b: %s" % (convert_angular_velocity_units(lens["mul"]), convert_angular_velocity_units(lens["mub"]))
     print
     print "And for source %s:\n%s" % (source_index, source)
     print "Distance: %s            Mass: %s" % (source["Dist"] * units.kpc, source["Mass"] * units.solMass)
     print "mu_l: %s                mu_b: %s" % (source["mul"] * units.mas/units.yr, source["mub"] * units.mas/units.yr)
+    print "mu_l: %s                mu_b: %s" % (convert_angular_velocity_units(source["mul"]), convert_angular_velocity_units(source["mub"]))
     print
     print "Angular Einstein radius is: %s" % theta_E
 
