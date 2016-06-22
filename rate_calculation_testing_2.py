@@ -125,8 +125,8 @@ def do_they_microlens(lens, source):
     u_source = (source["mul"] * units.mas, source["mub" * units.mas])
     v_r_lens = lens["Vr"] * units.kpc # May not be correct units?
     v_r_source = source["Vr"] * units.kpc # May not be correct units?
-    position_initial_lens = (lens["l"] * units.mas, lens["b"] * units.mas)
-    position_initial_source = (source["l"] * units.mas, source["b"] * units.mas)
+    position_initial_lens = ((lens["l"] * units.deg).to(units.mas), (lens["b"] * units.deg).to(units.mas))
+    position_initial_source = ((source["l"] * units.deg).to(units.mas), (source["b"] * units.deg).to(units.mas))
 
     # Technically not always accurate since radial distance changes with time,
     # But how likely is it practically that one a source will begin in front of a lens,
