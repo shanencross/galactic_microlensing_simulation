@@ -2,17 +2,18 @@
 rate_calculation_grid_method_testing.py
 @author Shanen Cross
 """
-
 import sys
 import os
 import numpy as np
 import astropy.units as units
 from astropy.constants import G, c
 import csv
+import matplotlib.pyplot as plt
 import logging
 
 import logger_setup
 import reading_in_star_population
+import plotting
 
 LOGGER_ON = False # Enable or disable logger. Affects execution speed
 DEBUGGING_MODE = False # Turn this flag on if modifying and testing code - turn it off when actively being used
@@ -21,14 +22,14 @@ if LOGGER_ON:
     # create and set up filepath and directory for logs -
     # log dir is subdir of script
     if DEBUGGING_MODE:
-	    LOG_DIR = os.path.join(sys.path[0], "logs_debugging/rate_calculation_grid_method_testing_log")
+	    LOG_DIR = os.path.join(sys.path[0], "logs_debugging/" + __name__ + "_log")
     else:
-	    LOG_DIR = "logs/rate_calculation_grid_method_testing"
+	    LOG_DIR = "logs/" + __name__ + "_log"
 
     if not os.path.exists(LOG_DIR):
         os.makedirs(LOG_DIR)
     
-    LOG_NAME = "ROGUE_log"
+    LOG_NAME = __name__ + "_log"
     LOG_DATE_TIME_FORMAT = "%Y-%m-%d"
     if DEBUGGING_MODE:
 	    logger = logger_setup.setup(__name__, LOG_DIR, LOG_NAME, LOG_DATE_TIME_FORMAT, console_output_on=True, console_output_level = "DEBUG")
@@ -71,73 +72,143 @@ def main():
     mass_density_bin = []
     star_bins = []
     tau_sum = 0
-    number_of_terms = 0
+    logger.info("dist_source set to default value: %s" % DIST_SOURCE_DEFAULT)
+    if not CALCULATE_SOLID_ANGLE:
+        logger.info("solid_angle set to default value: %s" % SOLID_ANGLE_DEFAULT)
+    error_counter = 0
+    for i in xrange(len(star_pop)):
+        star = star_pop[i]
+        dist = star["Dist"] * units.kpc
+        mass = star["Mass"] * units.solMass
+
+        logger.debug("dist: %s                 mass: %s" % (dist, mass))
+        
+        # If this is the first iteration, the previous distance is set to 0
+        if i > 0:
+            last_dist = star_pop[i - 1]["Dist"] * units.kpc
+        else:
+            last_dist = 0 * units.kpc
+
+        logger.debug("last_dist: %s" % last_dist)
+        logger.debug("last_bin_dist: %s" % last_bin_dist)
+        logger.debug("Comparing dist to last_dist...")
+
+        """
+        If current and previous distance don't match, we've moved on to another bin of stars.
+        Averages mass density values from the bin of stars that was just completed;
+        calculates a tau term from this density, the source distance, and the distances of the completed
+        star bin and the previous star bin; and adds term to the tau sum. 
+
+        Finally, move on to the next bin by updating the last bin distance and emptying the
+        current mass density bin.
+        """
+        if dist != last_dist:
+            if len(mass_density_bin) > 0:
+                bin_size = len(mass_density_bin)
+                logger.debug("Final mass bin size: %s" % bin_size)
+                ro_average = units.Quantity(mass_density_bin).mean()
+                logger.debug("Averaged ro: %s" % ro_average)
+
+                dist_source = get_dist_source()
+                logger.debug("dist_source: %s" % dist_source)
+                delta_dist = last_dist - last_bin_dist
+                logger.debug("delta_dist: %s" % delta_dist)
+
+                tau_addition_term = get_tau_addition_term(ro_average, last_dist, dist_source, delta_dist)
+                logger.debug("Adding to tau: %s" % tau_addition_term)
+                tau_sum += tau_addition_term
+
+                bin_dict = {"dist": last_dist, "mass_density_average": ro_average, "delta_dist": delta_dist, \
+                            "tau_addition_term": tau_addition_term, "tau_value_after_addition": tau_sum, "size": bin_size}
+                star_bins.append(bin_dict)
+                #print "star bin added, tau value: %s" % star_bins[-1]["tau_value_after_addition"]
+                #print "tau sum: %s" % tau_sum      
+                #print "tau value after addition: %s" % bin_dict["tau_value_after_addition"]          
+            
+            last_bin_dist = last_dist
+            mass_density_bin = []
+
+        logger.debug("last_bin_dist: %s" % last_bin_dist)
+        if len(star_bins) > 0 and i > len(star_pop)/2:
+            latest_star_bin = star_bins[-1]
+            latest_tau = latest_star_bin["tau_value_after_addition"]
+            print "latest star bin tau: %s" % latest_tau
+            if latest_tau <= 3.68105603883e-14:
+                print "!!!"
+                print latest_star_bin
+                if error_counter >= 3:
+                    sys.exit()
+                error_counter += 1
+
+        # Calculate mass density for from, current bin distance, and last bin distance and append
+        # to mass density bin.
+        mass_density = get_mass_density(mass, last_bin_dist, dist)
+        logger.debug("mass_density: %s" % mass_density)
+        mass_density_bin.append(mass_density)
+        logger.debug("updated mass_density_bin: %s" % mass_density_bin)
+        logger.debug("tau _sum: %s" % tau_sum)
+        logger.info("")
+        logger.info("")
+    logger.info("Final tau_sum: %s" % tau_sum)
+    logger.info("Number of bins: %s" % len(star_bins))
+
     with open(STAR_BIN_FILEPATH, "w") as star_bin_file:
         writer = csv.DictWriter(star_bin_file, fieldnames=STAR_BIN_FIELDNAMES)
         writer.writeheader()
-        for i in xrange(len(star_pop)):
-            star = star_pop[i]
-            dist = star["Dist"] * units.kpc
-            mass = star["Mass"] * units.solMass
+        for bin_dict in star_bins:
+            print "tau value after addition %s" % bin_dict["tau_value_after_addition"]
+            writer.writerow(bin_dict) 
+    
+    plot_star_bins(star_bins)
 
-            logger.debug("dist: %s                 mass: %s" % (dist, mass))
-        
-            # If this is the first iteration, the previous distance is set to 0
-            if i > 0:
-                last_dist = star_pop[i - 1]["Dist"] * units.kpc
-            else:
-                last_dist = 0 * units.kpc
+def plot_star_bins(star_bins):
+    dists = []
+    bin_sizes = []
+    mass_density_averages = []
+    delta_dists = []
+    tau_values_after_addition = []
+    tau_addition_terms = []
+    for star_bin in star_bins:
+        dists.append(star_bin["dist"])
+        bin_sizes.append(star_bin["size"])
+        mass_density_averages.append(star_bin["mass_density_average"])
+        delta_dists.append(star_bin["delta_dist"])
+        tau_values_after_addition.append(star_bin["tau_value_after_addition"])
+        tau_addition_terms.append(star_bin["tau_addition_term"])
+    
+    # Make lists into Quantities of lists rather than lists of Quantities
+    # Allows us to get values and unit attributes from each group
+    dists = units.Quantity(dists)
+    bin_sizes = units.Quantity(bin_sizes)
+    mass_density_averages = units.Quantity(mass_density_averages)
+    delta_dists = units.Quantity(delta_dists)
+    tau_values_after_addition = units.Quantity(tau_values_after_addition)
+    tau_addition_terms = units.Quantity(tau_addition_terms)    
 
-            logger.debug("last_dist: %s" % last_dist)
-            logger.debug("last_bin_dist: %s" % last_bin_dist)
-            logger.debug("Comparing dist to last_dist...")
+    plt.plot(dists, bin_sizes, "ro")
+    plt.xlabel("distance (%s)" % dists.unit)
+    plt.ylabel("bin size (%s)" % bin_sizes.unit)
+    plt.show()
 
-            """
-            If current and previous distance don't match, we've moved on to another bin of stars.
-            Averages mass density values from the bin of stars that was just completed;
-            calculates a tau term from this density, the source distance, and the distances of the completed
-            star bin and the previous star bin; and adds term to the tau sum. 
+    plt.plot(dists, mass_density_averages, "ro")
+    plt.xlabel("distance (%s)" % dists.unit)
+    plt.ylabel("mass density average (%s)" % mass_density_averages.unit)
+    plt.show()
 
-            Finally, move on to the next bin by updating the last bin distance and emptying the
-            current mass density bin.
-            """
-            if dist != last_dist:
-                if len(mass_density_bin) > 0:
-                    bin_size = len(mass_density_bin)
-                    logger.debug("Final mass bin size: %s" % bin_size)
-                    ro_average = units.Quantity(mass_density_bin).mean()
-                    logger.debug("Averaged ro: %s" % ro_average)
+    plt.plot(dists, delta_dists, "ro")
+    plt.xlabel("distance (%s)" % dists.unit)
+    plt.ylabel("delta distance (%s)\n(difference between bin and previous bin distances)" % delta_dists.unit)
+    plt.show()
 
-                    dist_source = get_dist_source()
-                    logger.debug("dist_source: %s" % dist_source)
-                    delta_dist = last_dist - last_bin_dist
-                    logger.debug("delta_dist: %s" % delta_dist)
+    plt.plot(dists, tau_values_after_addition, "ro")
+    plt.xlabel("distance (%s)" % dists.unit)
+    plt.ylabel("tau value after last addition (%s)" % delta_dists.unit)
+    plt.show()
 
-                    tau_addition_term = get_tau_addition_term(ro_average, last_dist, dist_source, delta_dist)
-                    logger.debug("Adding to tau: %s" % tau_addition_term)
-                    tau_sum += tau_addition_term
-
-                    bin_dict = {"dist": last_dist, "mass_density_average": ro_average, "delta_dist": delta_dist, \
-                                "tau_addition_term": tau_addition_term, "tau_value_after_addition": tau_sum, "size": bin_size}
-                    star_bins.append(bin_dict)
-                    writer.writerow(bin_dict)                    
-            
-                last_bin_dist = last_dist
-                mass_density_bin = []
-
-            logger.debug("last_bin_dist: %s" % last_bin_dist)
-
-            # Calculate mass density for from, current bin distance, and last bin distance and append
-            # to mass density bin.
-            mass_density = get_mass_density(mass, last_bin_dist, dist)
-            logger.debug("mass_density: %s" % mass_density)
-            mass_density_bin.append(mass_density)
-            logger.debug("updated mass_density_bin: %s" % mass_density_bin)
-            logger.debug("tau _sum: %s" % tau_sum)
-            logger.info("")
-            logger.info("")
-    logger.info("Final tau_sum: %s" % tau_sum)
-    logger.info("Number of bins: %s" % len(star_bins))
+    plt.plot(dists, tau_addition_terms, "ro")
+    plt.xlabel("distance (%s)" % dists.unit)
+    plt.ylabel("addition to tau value (%s)" % delta_dists.unit)
+    plt.show()
 
 def get_tau_addition_term(ro_average, dist_lens, dist_source, delta_dist_lens):
     tau_addition = 4*np.pi*G/c**2 * ro_average * (dist_lens/dist_source) * (dist_source - dist_lens) * delta_dist_lens
