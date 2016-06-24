@@ -20,7 +20,7 @@ STAR_POP_STARTING_FIELDNAME = "Dist"
 
 def read_star_pop(star_pop_filepath = STAR_POP_FILEPATH, star_pop_starting_fieldname = STAR_POP_STARTING_FIELDNAME):
     with open(star_pop_filepath, "r") as star_pop_file:
-        print "Reading star population file: %s" % (star_pop_filepath)
+        #print "Reading star population file: %s" % (star_pop_filepath)
         reading_star_table = False
         star_pop_fieldnames = []
         star_dict_list = []
@@ -49,5 +49,5 @@ def read_star_pop(star_pop_filepath = STAR_POP_FILEPATH, star_pop_starting_field
         pass
       #  print "First %s elements of star dictionary list:" % (element_count)
       #  print star_dict
-    print "Star count: %s" % len(star_dict_list)
+    #print "Star count: %s" % len(star_dict_list)
     return star_dict_list
