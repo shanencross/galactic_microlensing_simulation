@@ -5,8 +5,9 @@ rate_calculation_grid_method_testing.py
 
 import sys
 import os
-import numpy
+import numpy as np
 import astropy.units as units
+from astropy.constants import G, c
 
 import reading_in_star_population
 
@@ -23,170 +24,77 @@ CALCULATE_SOLID_ANGLE = False # Determines whether solid angle is calculated fro
                               # or simply given (used for "small field" models)
 SOLID_ANGLE_DEFAULT = 1 * units.deg # Default value for solid angle of calculate flag is off
 
-dist_source_default = 8.5 * units.kpc # Default source distance set to 8.5 kiloparsecs for now, which is our seeing limit when observing
+DIST_SOURCE_DEFAULT = 8.5 * units.kpc # Default source distance set to 8.5 kiloparsecs for now, which is our seeing limit when observing
                                       # the bulge directly. Eventually this should vary with (l, b)
 
 # Currently designed only for "small field" populations with only one grid cell 
 # (a single (l,b) value with some square degree angular size)
 def main():
     star_pop = reading_in_star_population.read_star_pop(STAR_POP_FILEPATH)
-    """
     last_different_dist = 0 * units.kpc
-    num = 0
     mass_density_bin = []
-    sum = 0
-    for i in xrange(star_count):
-        Run 0:
-        num += 1
-        star = star_pop[0]
-        (star = 0.052, 13.6)
-        dist = star["Dist"]
-        (dist == 0.052)
-        if i > 0: (condition unfulfilled)
-            last_dist = star_pop[0 - 1 = -1]
-            num = 0
-            ro_average = get_average(mass_density_bin)
-            #tau_addition_term = get_tau_addition_term(ro_average, dist, dist_source)
-        else: (condition fulfilled)
-            last_dist = 0
-        (last_dist == 0)
+    tau_sum = 0
+    for i in xrange(len(star_pop[5600:5610])):
+        star = star_pop[i]
+        dist = star["Dist"] * units.kpc
+        mass = star["Mass"] * units.solMass
 
-        (last_different_dist == 0)
-        if dist != last_dist: (condition fulfilled):
-            last_different_dist = last_dist
-        (last_different_dist == 0)
-
-        mass_density = get_mass_density(mass, event_number, dist, last_different_dist)
-        mass_density_bin.append(mass_density)
-
-        Run 1:
-        star = star_pop[1]
-        (star == 0.071, 13.10)
-        dist = star["Dist"]
-        (dist == 0.071)
-        if i > 0: (condition (fulfilled)
-            last_dist = star_pop[1 - 1 = 0]
-        else: (condition unfulfilled)
-            last_dist = 0
-        (last_dist == 0.052)
-
-        (last_different_dist == 0)
-        if dist != last_dist: (condition fulfilled)
-            last_different_dist = last_dist
-        (last_different_dist == 0.052)
-
-        mass_density = get_mass_density(mass, event_number, dist, last_different_dist)
-
-
-        Run 2:
-        star = star_pop[2]
-        (star == 0.071, 12.50)
-        dist = star["Dist"]
-        (dist == 0.071)
-        if i > 0: (condition fulfilled)
-           last_dist = star_pop[2 - 1 = 1]
-        else: (condition unfulfilled)
-            last_dist = 0
-        (last_dist == 0.071)
-
-        (last_different_dist == 0.052)
-        if dist != last_dist: (condition ufulfilled)
-            last_different_dist = last_dist
-        (last_different_dist == 0.052)
-
-        mass_density = get_mass_density(mass, event_number, dist, last_different_dist)
+        print "dist: %s                 mass: %s" % (dist, mass)
         
-        Run 3:
-        star = star_pop[3]
-        (star == 0.071, 15.8)
-        dist = star["Dist"]
-        (dist == 0.071)
-        if i > 0: (condition fulfilled)
-            last_dist = star_pop[3 - 1 = 2]
-        else: (condition unfulfilled)
-            last_dist = 0
-        (last_dist == 0.071)
-
-        (last_different_dist == 0.052)
-        if dist != last_dist: (condition unfulfilled)
-            last_different_dist = last_dist
-        (last_different_dist == 0.071)
-
-        mass_density = get_mass_density(mass, event_number, dist, last_different_dist)
-
-        Run 4:
-        star = star_pop[4]
-        (star == 0.071, 15.8)
-        dist = star["Dist"]
-        (dist == 0.091)
-        if i > 0: (condition fulfilled)
-            last_dist = star_pop[3 - 1 = 3]
-        else: (condition unfulfilled)
-            last_dist = 0
-        (last_dist == 0.071)
-
-        (last_different_dist == 0.071)
-        if dist != last_dist: (condition unfulfilled)
-            last_different_dist = last_dist
-        (last_different_dist == 0.071)
-
-        mass_density = get_mass_density(mass, event_number, dist, last_different_dist)
-
-        ...
-
-        Run (final):
-        star = star_pop[final]
-        (star == 49.885, 5.00)
-        dist = star["Dist"]
-        (dist == 49.885)
-        if i > 0: condition fulfilled:
-            last_dist = star_pop[Final - 1]
-        else: (condition unfulfilled)
-            last_dist = 0
-        (last_dist == 49.835)
-
-        (last_different_dist == 49.785)
-        if dist != last_dist: (condition fulfilled):
-            last_different_dist = last_dist
-        (last_different_dist == 49.835)
-        
-        mass_density = get_mass_density(mass, event_number, dist, last_different_dist
-
-    """
-
-    tau = 0
-    current_dist = 0 * units.kpc
-    event_number = 0
-    star_count = len(star_pop[:15])
-    for i in xrange(star_count):
-        star_1 = star_pop[i]
-        if i <= star_count - 2:
-            star_2 = star_pop[i+1]
+        if i > 0:
+            last_dist = star_pop[i - 1]["Dist"] * units.kpc
         else:
-            print "No next star exists."
-            print "i: %s" % i
-            break
+            last_dist = 0 * units.kpc
+        print "last_dist: %s" % last_dist
 
-        dist_1 = star_1["Dist"] * units.kpc
-        dist_2 = star_2["Dist"] * units.kpc
-        if dist_1 > current_dist:
-            print "dist %s greater than previous dist %s" % (dist_1, current_dist)
-            print "updating previous dist"
-            current_dist = dist_1
-            event_number = 0
-        event_number += 1
-        print "Event number: %s" % event_number
-        mass = star_1["Mass"] * units.solMass
-        # currently broken
-        mass_density = get_mass_density(mass, event_number, dist_2, dist_1)
-        print "mass density: %s" % mass_density
+        print "last_different_dist: %s" % last_different_dist
+        print "Comparing dist to last_dist..."
+        if dist != last_dist:
+            if len(mass_density_bin) > 0:
+                ro_average = units.Quantity(mass_density_bin).mean()
+                print "Averaged ro: %s" % ro_average
 
-def get_mass_density(mass, event_number, dist_2, dist_1):
-    delta_volume = get_delta_volume(dist_2, dist_1)
-    mass_density = mass * event_number / delta_volume
+                dist_source = get_dist_source()
+                print "dist_source: %s" % (dist_source)
+                delta_dist = last_dist - last_different_dist
+                print "delta_dist: %s" % (delta_dist)
+
+                tau_addition_term = get_tau_addition_term(ro_average, last_dist, dist_source, delta_dist)
+                print "Adding to tau: %s" % tau_addition_term.decompose()
+                tau_sum += tau_addition_term
+
+            last_different_dist = last_dist
+            mass_density_bin = []
+
+        print "last_different_dist: %s" % last_different_dist
+
+        mass_density = get_mass_density(mass, last_different_dist, dist)
+        print "mass_density: %s" % mass_density
+        mass_density_bin.append(mass_density)
+        print "updated mass_density_bin: %s" % mass_density_bin
+        print "tau _sum: %s" % tau_sum
+        print
+        print
+    print "Final tau_sum: %s" % tau_sum
+
+def get_tau_addition_term(ro_average, dist_lens, dist_source, delta_dist_lens):
+    tau_addition = 4*np.pi*G/c**2 * ro_average * (dist_lens/dist_source) * (dist_source - dist_lens) * delta_dist_lens
+    return tau_addition
+
+def get_dist_source():
+    return DIST_SOURCE_DEFAULT
+
+"""
+def get_dist_source(l, b):
+    return DIST_SOURCE_DEFAULT
+"""
+
+def get_mass_density(mass, dist_1, dist_2):
+    delta_volume = get_delta_volume(dist_1, dist_2)
+    mass_density = mass / delta_volume
     return mass_density
 
-def get_delta_volume(dist_2, dist_1):
+def get_delta_volume(dist_1, dist_2):
     if CALCULATE_SOLID_ANGLE:
         print "Attempting to calculate solid angle, but this feature isn't ready." 
         print "User should set CALCULATE_SOLID_ANGLE flag to false."
