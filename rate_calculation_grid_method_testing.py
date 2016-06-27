@@ -15,7 +15,7 @@ import logger_setup
 import reading_in_star_population
 import plotting
 
-LOGGER_ON = False # Enable or disable logger. Affects execution speed
+LOGGER_ON = True # Enable or disable logger. Affects execution speed
 DEBUGGING_MODE = False # Turn this flag on if modifying and testing code - turn it off when actively being used
 
 if LOGGER_ON:
@@ -53,7 +53,7 @@ CALCULATE_SOLID_ANGLE = False # Determines whether solid angle is calculated fro
                               # or simply given (used for "small field" models)
 SOLID_ANGLE_DEFAULT = 1 * units.deg # Default value for solid angle of calculate flag is off
 
-DIST_SOURCE_DEFAULT = 8.5 * units.kpc # Default source distance set to 8.5 kiloparsecs for now, which is our seeing limit when observing
+DIST_SOURCE_DEFAULT = 50 * units.kpc # Default source distance set to 8.5 kiloparsecs for now, which is our seeing limit when observing
                                       # the bulge directly. Eventually this should vary with (l, b)
 # Currently designed only for "small field" populations with only one grid cell 
 # (a single (l,b) value with some square degree angular size)
@@ -117,28 +117,32 @@ def main():
                 tau_addition_term = get_tau_addition_term(ro_average, last_dist, dist_source, delta_dist)
                 logger.debug("Adding to tau: %s" % tau_addition_term)
                 tau_sum += tau_addition_term
+                
 
                 bin_dict = {"dist": last_dist, "mass_density_average": ro_average, "delta_dist": delta_dist, \
-                            "tau_addition_term": tau_addition_term, "tau_value_after_addition": tau_sum, "size": bin_size}
+                            "tau_addition_term": tau_addition_term.copy(), "tau_value_after_addition": tau_sum.copy(), "size": bin_size}
                 star_bins.append(bin_dict)
                 #print "star bin added, tau value: %s" % star_bins[-1]["tau_value_after_addition"]
-                #print "tau sum: %s" % tau_sum      
-                #print "tau value after addition: %s" % bin_dict["tau_value_after_addition"]          
+                #print "tau sum: %s" % tau_sum
+                #print "tau value after addition: %s" % bin_dict["tau_value_after_addition"]
             
             last_bin_dist = last_dist
             mass_density_bin = []
 
+        """
         logger.debug("last_bin_dist: %s" % last_bin_dist)
         if len(star_bins) > 0 and i > len(star_pop)/2:
             latest_star_bin = star_bins[-1]
             latest_tau = latest_star_bin["tau_value_after_addition"]
-            print "latest star bin tau: %s" % latest_tau
-            if latest_tau <= 3.68105603883e-14:
-                print "!!!"
-                print latest_star_bin
-                if error_counter >= 3:
-                    sys.exit()
-                error_counter += 1
+            #print "latest star bin tau: %s          error count: %s" % (latest_tau, error_counter)
+            #if latest_tau <= 3.68105603883e-14:
+                #error_counter += 1
+                #print "!!!"
+                #print latest_star_bin
+                #if error_counter >= 0:
+                    #sys.exit()
+        """
+                
 
         # Calculate mass density for from, current bin distance, and last bin distance and append
         # to mass density bin.
@@ -149,6 +153,8 @@ def main():
         logger.debug("tau _sum: %s" % tau_sum)
         logger.info("")
         logger.info("")
+        #if len(star_bins) > 0:
+            #print "First star bin tau value: %s" % star_bins[0]["tau_value_after_addition"]
     logger.info("Final tau_sum: %s" % tau_sum)
     logger.info("Number of bins: %s" % len(star_bins))
 
@@ -156,7 +162,6 @@ def main():
         writer = csv.DictWriter(star_bin_file, fieldnames=STAR_BIN_FIELDNAMES)
         writer.writeheader()
         for bin_dict in star_bins:
-            print "tau value after addition %s" % bin_dict["tau_value_after_addition"]
             writer.writerow(bin_dict) 
     
     plot_star_bins(star_bins)
@@ -202,12 +207,12 @@ def plot_star_bins(star_bins):
 
     plt.plot(dists, tau_values_after_addition, "ro")
     plt.xlabel("distance (%s)" % dists.unit)
-    plt.ylabel("tau value after last addition (%s)" % delta_dists.unit)
+    plt.ylabel("tau value after last addition (%s)" % tau_values_after_addition.unit)
     plt.show()
 
     plt.plot(dists, tau_addition_terms, "ro")
     plt.xlabel("distance (%s)" % dists.unit)
-    plt.ylabel("addition to tau value (%s)" % delta_dists.unit)
+    plt.ylabel("addition to tau value (%s)" % tau_addition_terms.unit)
     plt.show()
 
 def get_tau_addition_term(ro_average, dist_lens, dist_source, delta_dist_lens):
