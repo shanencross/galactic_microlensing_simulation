@@ -24,9 +24,16 @@ def read_star_pop(star_pop_filepath = STAR_POP_FILEPATH, star_pop_starting_field
         reading_star_table = False
         star_pop_fieldnames = []
         star_dict_list = []
+        coordinates_gal = None
         for line in star_pop_file:
             split_line = line.split()
-            if not reading_star_table and len(split_line) > 0 and split_line[0] == star_pop_starting_fieldname:
+           
+            if not reading_star_table and len(split_line) > 0 and split_line[0] == "(l":
+                l_coord = float(split_line[2][:-1])
+                b_coord = float(split_line[5][:-1])
+                coordinates_gal = (l_coord, b_coord) 
+
+            elif not reading_star_table and len(split_line) > 0 and split_line[0] == star_pop_starting_fieldname:
                 star_pop_fieldnames = split_line
                 reading_star_table = True
                # print "Reached beginning of star table in file"
@@ -45,9 +52,10 @@ def read_star_pop(star_pop_filepath = STAR_POP_FILEPATH, star_pop_starting_field
                 star_dict_list.append(star_dict)
     
     element_count = 4
-    for star_dict in star_dict_list[:element_count]:
-        pass
+    #for star_dict in star_dict_list[:element_count]:
       #  print "First %s elements of star dictionary list:" % (element_count)
       #  print star_dict
     #print "Star count: %s" % len(star_dict_list)
-    return star_dict_list
+
+    star_info_dict = {"star_pop": star_dict_list, "coordinates_gal": coordinates_gal}
+    return star_info_dict
