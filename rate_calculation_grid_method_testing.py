@@ -15,7 +15,7 @@ import logger_setup
 import reading_in_star_population
 import plotting
 
-LOGGER_ON = True # Enable or disable logger. Affects execution speed
+LOGGER_ON = False # Enable or disable logger. Affects execution speed
 DEBUGGING_MODE = False # Turn this flag on if modifying and testing code - turn it off when actively being used
 
 if LOGGER_ON:
@@ -46,6 +46,7 @@ STAR_POP_DIR = os.path.join(sys.path[0], "star_population_tables")
 #STAR_POP_FILENAME = "1466032757.632040.resu"
 #STAR_POP_FILENAME = "1466196244.700497.resu"
 STAR_POP_FILENAME = "1466633557.703409.resu"
+#STAR_POP_FILENAME = "1467072296.449283.resu"
 
 STAR_POP_FILEPATH = os.path.join(STAR_POP_DIR, STAR_POP_FILENAME)
 

@@ -51,11 +51,11 @@ def read_star_pop(star_pop_filepath = STAR_POP_FILEPATH, star_pop_starting_field
                     star_dict[star_pop_fieldname] = float(split_line[i])
                 star_dict_list.append(star_dict)
     
-    element_count = 4
+    #element_count = 4
     #for star_dict in star_dict_list[:element_count]:
       #  print "First %s elements of star dictionary list:" % (element_count)
       #  print star_dict
     #print "Star count: %s" % len(star_dict_list)
 
-    star_info_dict = {"star_pop": star_dict_list, "coordinates_gal": coordinates_gal}
+    star_info_dict = {"star_pop": star_dict_list, "fieldnames": star_pop_fieldnames ,"coordinates_gal": coordinates_gal}
     return star_info_dict
