@@ -40,13 +40,17 @@ else:
     logger = logging.getLogger()
     logger.disabled = True
 
-STAR_POP_DIR = os.path.join(sys.path[0], "star_population_tables")
+#STAR_POP_DIR = os.path.join(sys.path[0], "star_population_tables")
+STAR_POP_DIR = os.path.join(sys.path[0], "star_population_tables_csv")
 #STAR_POP_FILENAME = "1466028123.767236.resu"
 #STAR_POP_FILENAME = "1466028463.709599.resu"
 #STAR_POP_FILENAME = "1466032757.632040.resu"
 #STAR_POP_FILENAME = "1466196244.700497.resu"
-STAR_POP_FILENAME = "1466633557.703409.resu"
+#STAR_POP_FILENAME = "1466633557.703409.resu"
 #STAR_POP_FILENAME = "1467072296.449283.resu"
+#STAR_POP_FILENAME = "1466633557.703409.csv"
+#STAR_POP_FILENAME = "1467072296.449283_sample.csv"
+STAR_POP_FILENAME = "1467072296.449283_sample_0.001.csv"
 
 STAR_POP_FILEPATH = os.path.join(STAR_POP_DIR, STAR_POP_FILENAME)
 
@@ -68,101 +72,40 @@ STAR_BIN_FILEPATH = os.path.join(STAR_BIN_DIR, STAR_BIN_FILENAME)
 STAR_BIN_FIELDNAMES = ["dist", "mass_density_average", "delta_dist", "tau_addition_term", "tau_value_after_addition", "size"]
 
 def main():
-    calculate_rate()
+    if len(sys.argv) > 1 and sys.argv[1] == "alt":
+        calculate_rate_alt()
+    else:
+        calculate_rate()
 
-def calculate_rate_alternate():
-    star_info_dict = reading_in_star_population.read_star_pop(STAR_POP_FILEPATH)
+def calculate_rate_alt():
+    star_info_dict = reading_in_star_population.read_star_pop(STAR_POP_FILEPATH, is_csv = True)
     star_pop = star_info_dict["star_pop"]
-    coord_gal = star_info_dict["coordinates_gal"] * units.deg
-        
-    last_bin_dist = 0 * units.kpc
-    mass_density_bin = []
-    star_bins = []
+    if star_info_dict.has_key("coordinates_gal") and star_info_dict["coordinates_gal"] is not None:
+        coord_gal = float(star_info_dict["coordinates_gal"]) * units.deg
+    else:
+        coord_gal = None
+
     tau_sum = 0
-
-    step_size = 0.01
-    distance_start = 0
-    distance_end = 50
-
     dist_source = get_dist_source(coord_gal)
-    logger.info("dist_source set to default value: %s" % DIST_SOURCE_DEFAULT)
-    if not CALCULATE_SOLID_ANGLE:
-        logger.info("solid_angle set to default value: %s" % SOLID_ANGLE_DEFAULT)
-
-    for i in xrange(len(star_pop)):
-        star = star_pop[i]
-        dist = star["Dist"] * units.kpc
-        mass = star["Mass"] * units.solMass
-
-        logger.debug("dist: %s                 mass: %s" % (dist, mass))
-        
-        # If this is the first iteration, the previous distance is set to 0
-        if i > 0:
-            last_dist = star_pop[i - 1]["Dist"] * units.kpc
-        else:
-            last_dist = 0 * units.kpc
-
-        logger.debug("last_dist: %s" % last_dist)
-        logger.debug("last_bin_dist: %s" % last_bin_dist)
-        logger.debug("Comparing dist to last_dist...")
-
-        """
-        If current and previous distance don't match, we've moved on to another bin of stars.
-        Averages mass density values from the bin of stars that was just completed;
-        calculates a tau term from this density, the source distance, and the distances of the completed
-        star bin and the previous star bin; and adds term to the tau sum. 
-
-        Finally, move on to the next bin by updating the last bin distance and emptying the
-        current mass density bin.
-        """
-        if dist != last_dist:
-            if len(mass_density_bin) > 0:
-                bin_size = len(mass_density_bin)
-                logger.debug("Final mass bin size: %s" % bin_size)
-                ro_average = units.Quantity(mass_density_bin).mean()
-                logger.debug("Averaged ro: %s" % ro_average)
-
-                logger.debug("dist_source: %s" % dist_source)
-                delta_dist = last_dist - last_bin_dist
-                logger.debug("delta_dist: %s" % delta_dist)
-
-                tau_addition_term = get_tau_addition_term(ro_average, last_dist, dist_source, delta_dist)
-                logger.debug("Adding to tau: %s" % tau_addition_term)
-                tau_sum += tau_addition_term
-                
-
-                bin_dict = {"dist": last_dist, "mass_density_average": ro_average, "delta_dist": delta_dist, \
-                            "tau_addition_term": tau_addition_term.copy(), "tau_value_after_addition": tau_sum.copy(), "size": bin_size}
-                star_bins.append(bin_dict)
-                #print "star bin added, tau value: %s" % star_bins[-1]["tau_value_after_addition"]
-                #print "tau sum: %s" % tau_sum
-                #print "tau value after addition: %s" % bin_dict["tau_value_after_addition"]
-
-            last_bin_dist = last_dist
-            mass_density_bin = []
-
-        # Calculate mass density for from, current bin distance, and last bin distance and append
-        # to mass density bin.
-        mass_density = get_mass_density(mass, last_bin_dist, dist)
-        logger.debug("mass_density: %s" % mass_density)
-        mass_density_bin.append(mass_density)
-        logger.debug("updated mass_density_bin: %s" % mass_density_bin)
-        logger.debug("tau_sum: %s" % tau_sum)
-        logger.info("")
-        logger.info("")
-        #if len(star_bins) > 0:
-            #print "First star bin tau value: %s" % star_bins[0]["tau_value_after_addition"]
-    logger.info("Final tau_sum: %s" % tau_sum)
-    logger.info("Number of bins: %s" % len(star_bins))
-
-    logger.info("Final tau_sum: %s" % tau_sum)
-    logger.info("Number of bins: %s" % len(star_bins))
+    for star in star_pop:
+        dist_lens = float(star["Dist"]) * units.kpc
+        mass = float(star["Mass"]) * units.solMass   
+        dist_rel = 1 / ( (1/dist_lens) - (1/dist_source) )
+        solid_angle_dimensionless = SOLID_ANGLE_DEFAULT.to(units.dimensionless_unscaled, equivalencies=units.dimensionless_angles())
+        tau_addition_term = ( 4*np.pi*G*mass/c**2 / dist_rel ) / solid_angle_dimensionless
+        tau_addition_term = tau_addition_term.decompose()
+        tau_sum += tau_addition_term
+    print tau_sum
 
 def calculate_rate():
-    star_info_dict = reading_in_star_population.read_star_pop(STAR_POP_FILEPATH)
+    #star_info_dict = reading_in_star_population.read_star_pop(STAR_POP_FILEPATH, is_csv = False)
+    star_info_dict = reading_in_star_population.read_star_pop(STAR_POP_FILEPATH, is_csv = True)
     star_pop = star_info_dict["star_pop"]
-    coord_gal = star_info_dict["coordinates_gal"] * units.deg
-        
+    if star_info_dict.has_key("coordinates_gal") and star_info_dict["coordinates_gal"] is not None:
+        coord_gal = float(star_info_dict["coordinates_gal"]) * units.deg
+    else:
+        coord_gal = None
+
     last_bin_dist = 0 * units.kpc
     mass_density_bin = []
     star_bins = []
@@ -174,14 +117,13 @@ def calculate_rate():
     #error_counter = 0
     for i in xrange(len(star_pop)):
         star = star_pop[i]
-        dist = star["Dist"] * units.kpc
-        mass = star["Mass"] * units.solMass
-
+        dist = float(star["Dist"]) * units.kpc
+        mass = float(star["Mass"]) * units.solMass
         logger.debug("dist: %s                 mass: %s" % (dist, mass))
         
         # If this is the first iteration, the previous distance is set to 0
         if i > 0:
-            last_dist = star_pop[i - 1]["Dist"] * units.kpc
+            last_dist = float(star_pop[i - 1]["Dist"]) * units.kpc
         else:
             last_dist = 0 * units.kpc
 
@@ -258,8 +200,8 @@ def calculate_rate():
         writer.writeheader()
         for bin_dict in star_bins:
             writer.writerow(bin_dict) 
-    
-    plot_star_bins(star_bins)
+    if len(star_bins) > 0:    
+        plot_star_bins(star_bins)
 
 def plot_star_bins(star_bins):
     dists = []
@@ -315,7 +257,7 @@ def get_tau_addition_term(ro_average, dist_lens, dist_source, delta_dist_lens):
     tau_addition = tau_addition.decompose()
     return tau_addition
 
-def get_dist_source(coord_gal):
+def get_dist_source(coord_gal=None):
     if coord_gal is None:
         return DIST_SOURCE_DEFAULT
     else:

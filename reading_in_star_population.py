@@ -5,6 +5,7 @@ reading_in_star_population.py
 
 import sys
 import os
+import csv
 
 STAR_POP_DIR = os.path.join(sys.path[0], "star_population_tables")
 #STAR_POP_FILENAME = "1466028123.767236.resu"
@@ -18,7 +19,24 @@ STAR_POP_FILEPATH = os.path.join(STAR_POP_DIR, STAR_POP_FILENAME)
 # Used to detect the start of the line in the input file which contains the fieldnames for the star population table
 STAR_POP_STARTING_FIELDNAME = "Dist"
 
-def read_star_pop(star_pop_filepath = STAR_POP_FILEPATH, star_pop_starting_fieldname = STAR_POP_STARTING_FIELDNAME):
+def read_star_pop(star_pop_filepath = STAR_POP_FILEPATH, star_pop_starting_fieldname = STAR_POP_STARTING_FIELDNAME, is_csv = False):
+    if is_csv:
+        star_info_dict = read_star_pop_csv(star_pop_filepath)
+    else:
+        star_info_dict =  read_star_pop_resu(star_pop_filepath, star_pop_starting_fieldname)
+
+    return star_info_dict
+
+def read_star_pop_csv(star_pop_filepath = STAR_POP_FILEPATH):
+    with open(star_pop_filepath, "r") as star_pop_file:
+        reader = csv.DictReader(star_pop_file)
+        star_pop_fieldnames = reader.fieldnames
+        star_dict_list = [ star for star in reader ]
+        star_info_dict = {"star_pop": star_dict_list, "fieldnames": star_pop_fieldnames}
+        return star_info_dict
+        
+
+def read_star_pop_resu(star_pop_filepath = STAR_POP_FILEPATH, star_pop_starting_fieldname = STAR_POP_STARTING_FIELDNAME):
     with open(star_pop_filepath, "r") as star_pop_file:
         #print "Reading star population file: %s" % (star_pop_filepath)
         reading_star_table = False
@@ -59,3 +77,12 @@ def read_star_pop(star_pop_filepath = STAR_POP_FILEPATH, star_pop_starting_field
 
     star_info_dict = {"star_pop": star_dict_list, "fieldnames": star_pop_fieldnames ,"coordinates_gal": coordinates_gal}
     return star_info_dict
+
+def main():
+    star_pop_filepath_csv = "./star_population_tables_csv/1466633557.703409.csv"
+    star_info = read_star_pop_csv(star_pop_filepath_csv)
+    star_pop = star_info["star_pop"]
+    star = star_pop[0]
+    print star
+if __name__ == "__main__":
+    main()
