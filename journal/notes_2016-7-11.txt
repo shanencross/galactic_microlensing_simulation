@@ -1,0 +1,46 @@
+DIA = Difference Image Analysis:
+"The resolved source method includes all
+sources which are brighter than magnitude limit, whilst the
+DIA method includes fainter sources which may only be
+detectable during lensing. The DIA method has the ben-
+efit that it is less sensitive to blending systematics within
+crowded fields and potentially provides a better S/N ratio
+measurement due to the larger available sample size."
+------------------------------------------------------------------
+
+Population of 1000 stars: (assuming complete, not sample)
+
+import numpy as np
+min_l = 0
+max_l = 2
+min_b = -5
+max_b = -3
+
+delta_l = max_l - min_l
+#solid_angle = np.abs(delta_l * (np.sin(max_b)- np.sin(min_b)))
+(solid_angle == )
+step = 0.35
+
+star_pop = star_info["star_pop"]
+tau = 0
+for source in star_pop:
+  for lens in star_pop:
+    if lens["Dist"] < source["Dist"]:
+      tau_addition = np.pi * (get_einstein_radius(lens["Mass"], lens["Dist"], source["Dist"])**2) \
+                     * 1/solid_angle
+[IN PROGRESS]
+
+------------------------------------------------------
+For Besancon table:
+
+Grids within tables have borders whose coordinates are placed in increments of the step size, with the last grid height and widths being made smaller if necessary to reach the final coordinate value.
+
+The coordinates listed in the table for each star correspond to the *center* coordinate of the grid, not the coordinate of any of the borders.
+
+So when figuring out the solid angle of a grid, have to determine both the width (l_f - l_i) and the sinusoidal height difference (sin(b_f) - sin(b_i)) of each grid, keeping in mind that each star's coordinate is the center of a grid, and using the step size to determine where the border would be. So if we have a coordinate (l, b) for the center of one grid, usually (l_f, b_f) will be at (l + 0.5 * step_size_l, b + 0.5 * step_size_b)...
+
+...unless this is the one of the max l or max b grids, in which case the step size (and therefor the grid) may be smaller! In such cases, the modified step_size_l = l_max - l, and/or modified step_size_b = b_max - b.
+
+If the solid angle simply depended on delta_l and delta_b (l_f - l_i and b_f - b_i), then then solid angle would be constant (except for when l or b are at their maximum center value) since delta_l and delta_b would equal step_size_l and step_size_b. But we need sinusoidal_delta_b = sin(b_f) - sin(b_i), not just linear delta_b, so the exact value of b_f and b_i, not just their difference, matters. We can simply use linear delta_l = step_size_l though (again, except for max l or max b cases).
+
+So to calculate the solid angle, we only need to keep track of the exact b_f and b_i values, and whether are not l_f == l_max or b_f == b_max (or equivalently, if l or b have reached their maximum coordinate).

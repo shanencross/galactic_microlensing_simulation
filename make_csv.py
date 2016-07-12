@@ -6,6 +6,7 @@ import sys
 import os
 import csv
 import random
+import pandas
 
 import reading_in_star_population
 

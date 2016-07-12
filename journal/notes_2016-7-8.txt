@@ -1,0 +1,73 @@
+Installed atom editor
+------------------------
+Researched papers related to the Besancon Model and/or the microlensing optical depth.
+------------------------
+Discovered Manchester-Besancon Microlensing Simulator (MaBulS): http://www.mabuls.net/
+
+Used by Awiphan, E. Kerins, and A.C. Robin 2016(?) (Besancon Galactic model analysis of MOA-II microlensing: evidence for a mass deficit in the inner bulge).
+
+Unknown if this is used in M. Ban, E. Kerins, and A.C. Robin 2016 (The microlensing rate and distribution of free-floating planets towards the Galactic bulge) or the preceding paper E. Kerins, A.C. Robin, and D.J. Marshall  2009 (Synthetic microlensing maps of the Galactic bulge).
+
+Kerins and Robin are on all three.
+
+Summation method described in Ban 2016 sounds extremely similar to MaBulS method described in Awiphan 2016. Working out if they are equivalent (and attempting to reproduce them).
+------------------------
+Compared my results to expected results from measurements discussed in T. Sumi, M.T. Penny 2016(?) (Possible Solution of the long-standing discrepancy in the Microlensing Optical Depth Toward the Galactic) and predictions from MaBulS.
+
+My values are ~10^(-8) using the new summation method and ~10^(-9) using my original method.
+
+Expected values (MaBulS and measured) for (l, b) = (1, -4) are ~10^(-6). So something is wrong...
+
+My current methods do not sum over multiple source distances. They pick a single source distance considered to be the limit of our seeing (~8.5kpc looking towards the bulge) and sum over all lense distances. Perhaps this is the what is missing?
+
+I should investigate this.
+------------------------
+I should try to understand summation methods described in Awiphan 2016 and Ban 2016 better.
+
+Awiphan's uses different summations formulas for "DIA" and "Resolved" sources. The "Resolved" formula uses a form of the "impact parameter weighting factor" ("U" in Ban, "u" in Awiphan).
+------------------------
+I have code that calculates the optical depth using the new summation method (adding up tau values for each star). It outputs a depth value but no other information or any plots.
+
+I also have code calculates the optical depth using the old summation method (dividing stars up into distance bins and adding up averaged values for differential tau) along with several graphs plotting various values.
+
+The old method is suspect for two reasons:
+  (1)
+    The change in distance between distance bins should be kept constant I think mathematically, but it is not, and this value is used in caculating each differential tau; this could be significantly affecting the final tau value.
+  (2)
+    It does not agree with the new method (smaller by 1 magnitude) and may not agree with the new method even when issue (1) is fixed. The new method is more likely to be correct since it has been used in the literature before, whereas the old method I derived myself (obtaining the discrete sum formula from the continuous integral formula). However there may be a problem with my implementation of the new method.
+
+I should fix old method's issue (1) and see if (2) holds true still, but I am placing this at lower priority than double-checking my implementation of the new method, in particular:
+  Comparing with the formulas from Awiphan 2016 and Ban 2016 and adding summation over sources to new method and comparing results to ~10^(-6) expectation.
+  Understanding the difference between DIA and Resolved and how to implement them if we need to
+
+  Update: Explanation of DIA and Resolved from MaBulS site:
+    Maps can be computed for "Resolved sources" which at baseline are within the selected magnitude range. Or you can select "DIA sources" which are within the magnitude range at maximum magnification.
+
+
+HOWEVER, neither the old nor the new method take into account whether a star population is the full population or a random sample of one.
+  If it's a sample, the tau value should be multplied by the inverse of the fraction of the original star population that the random sample makes up. (e.g. a 0.01 sample should have the final calculated tau multiplied by 100)
+
+Currently I do this manually. See next section for more details.
+
+-------------------------------
+I have code that generates a random sample from a star population file.
+
+However, it does not consistently generate a sample of any given size.
+
+Instead it takes a fraction x (say 0.01), runs through each star in the population, and has a x% chance of adding that star to the new sample population.
+
+So if star population N_1 = 10000, x=0.01, this should generate a sample file with N_2 ~ 100, but not exactly 100, and in rare instances it technically could have a much smaller or much larger N_2 than 100 (though obviously <= 10000).
+
+I am researching how to obtain a randomized sample with a fixed N value. I found some methods here using csv files as input: http://stackoverflow.com/questions/22258491/read-a-small-random-sample-from-a-big-csv-file-into-a-python-data-frame
+
+...Though I would have to adapt any of these to work for star pops with giant starting and ending headers. Generating a csv first of the entire ~2GB file doesn't work (too slow, computer freezes up).
+
+Next step: read through this methods and try implementing on of them, then test it.
+
+Then: Integrate this into main program. It should check the size or length of the file, and if it's too big, get a sample cut down by some fraction to whatever we consider a "reasonable maximum" (~10^(5)? ~10^(4)?). Then multiply the final tau value by the inverse of this fraction.
+------------------------------
+What about the Besancon version?
+
+The online MabuLs currently uses version 1307. Ban 2016 uses 1112, and Awiphan 2016 possibly uses 1106 (but the phrasing is unclear: they references another paper which "also" uses a newer version of Besancon, 1106... but maybe Awiphan's is even newer than that?).
+
+I can't find a version number on the Besancon Model website to see what version their website form uses. Jeez.
