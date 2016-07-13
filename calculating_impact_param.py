@@ -17,35 +17,49 @@ def get_magnification(mag_brighter, mag_dimmer):
   magnif = 10**((mag_dimmer - mag_brighter) / 2.5)
   return magnif
 
-def get_angular_einstein_radius(mass_lens, dist_lense, dist_source):
-  theta = np.sqrt(4 * G * mass_lens * (dist_source - dist_lens) \
-          / (c**2 * dist_source * dist_lens))
+values_to_print = {}
 
 def main():
-
     if len(sys.argv) > 1:
         mag_base = float(sys.argv[1])
     else:
         mag_base = 15
+    impact_param_weight = simulate_impact_param_weight(mag_base)
 
+    values_to_print["impact_param_weight"] = impact_param_weight
+    values_to_print["mag_base"] = mag_base
+    print_values(values_to_print)
+
+def simulate_impact_param_weight(mag_base):
+    u_t = simulate_impact_param_threshold(mag_base)
+    impact_param_weight = get_impact_param_weight(u_t)
+
+    values_to_print["u_t"] = u_t
+    return impact_param_weight
+
+def simulate_impact_param_threshold(mag_base):
     mag_err = simulating_mag_error.simulate_mag_error(mag_base)
     mag_threshold = mag_base - (2*mag_err) # Or should it be mag - mag_err ?
 
     magnif_min = get_magnification(mag_threshold, mag_base)
+
     u_t = get_impact_param(magnif_min)
-    impact_param_weight = get_impact_param_weight(u_t)
 
-    print_values(mag_base, mag_err, mag_threshold, magnif_min, u_t, \
-                 impact_param_weight)
+    values_to_print["mag_err"] = mag_err
+    values_to_print["mag_threshold"] = mag_threshold
+    values_to_print["magnif_min"] = magnif_min
+    return u_t
 
-def print_values(mag_base, mag_err, mag_threshold, magnif_min, u_t, \
-                 impact_param_weight):
-    print "mag_base: %s" % mag_base
-    print "mag_err: %s" % mag_err
-    print "mag_threshold: %s" % mag_threshold
-    print "magnif_min: %s" % magnif_min
-    print "u_t: %s" % u_t
-    print "impact_param_weight: %s" % impact_param_weight
+def print_values(values_to_print):
+
+    #keys = values_to_print.keys()
+    keys = ["mag_base", "mag_err", "mag_threshold", "magnif_min", "u_t", \
+            "impact_param_weight"]
+    values = values_to_print.values()
+
+
+    for key in keys:
+        print "%s: %s" % (key, values_to_print[key])
 
 if __name__ == "__main__":
     main()

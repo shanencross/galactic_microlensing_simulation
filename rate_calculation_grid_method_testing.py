@@ -71,6 +71,40 @@ STAR_BIN_FILEPATH = os.path.join(STAR_BIN_DIR, STAR_BIN_FILENAME)
 
 STAR_BIN_FIELDNAMES = ["dist", "mass_density_average", "delta_dist", "tau_addition_term", "tau_value_after_addition", "size"]
 
+def calculate_rate_alt_with_impact_param():
+    star_info_dict = reading_in_star_population.read_star_pop(STAR_POP_FILEPATH, is_csv = True)
+    star_pop = star_info_dict["star_pop"]
+    if star_info_dict.has_key("coordinates_gal") and star_info_dict["coordinates_gal"] is not None:
+        coord_gal = float(star_info_dict["coordinates_gal"]) * units.deg
+    else:
+        coord_gal = None
+
+    tau_sum = 0
+    dist_source = get_dist_source(coord_gal)
+    dist_lens_list = []
+    tau_sum_list = []
+    tau_addition_term_list = []
+
+    for star_source in star_pop:
+        mag_source = star_source["Mv"]
+        impact_param_weight = calculating_impact_param.simulate_impact_param_weight(mag_source)
+        tau_sum * impact_param_weight
+
+        tau_lens_sum = 0
+        for star_lens in star_pop:
+            dist_lens = float(star_lens["Dist"]) * units.kpc
+            mass = float(star_lens["Mass"]) * units.solMass
+            dist_rel = 1 / ( (1/dist_lens) - (1/dist_source) )
+            solid_angle_dimensionless = SOLID_ANGLE_DEFAULT.to(units.dimensionless_unscaled, equivalencies=units.dimensionless_angles())
+            tau_addition_term = ( 4*np.pi*G*mass/c**2 / dist_rel ) / solid_angle_dimensionless
+            tau_lens_addition_term = tau_lens_addition_term.decompose()
+            tau_lens_sum += tau_lens_addition_term
+
+            #dist_lens_list.append(dist_lens.copy())
+            #tau_sum_list.append(tau_sum.copy())
+            #tau_addition_term_list.append(tau_addition_term.co
+
+
 def calculate_rate_alt():
     star_info_dict = reading_in_star_population.read_star_pop(STAR_POP_FILEPATH, is_csv = True)
     star_pop = star_info_dict["star_pop"]
@@ -316,6 +350,10 @@ def get_solid_angle(l_i, l_f, b_i, b_f):
     solid_angle = np.abs(delta_l * (np.sin(b_f)- np.sin(b_i)))
     logger.debug("solid_angle: %s" % solid_angle)
     return solid_angle
+
+def get_angular_einstein_radius(mass_lens, dist_lense, dist_source):
+  theta = np.sqrt(4 * G * mass_lens * (dist_source - dist_lens) \
+          / (c**2 * dist_source * dist_lens))
 
 def main():
     if len(sys.argv) > 1 and sys.argv[1] == "alt":
