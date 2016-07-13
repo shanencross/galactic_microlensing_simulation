@@ -28,7 +28,7 @@ if LOGGER_ON:
 
     if not os.path.exists(LOG_DIR):
         os.makedirs(LOG_DIR)
-    
+
     LOG_NAME = __name__ + "_log"
     LOG_DATE_TIME_FORMAT = "%Y-%m-%d"
     if DEBUGGING_MODE:
@@ -60,7 +60,7 @@ SOLID_ANGLE_DEFAULT = 1 * units.deg # Default value for solid angle of calculate
 
 DIST_SOURCE_DEFAULT = 50 * units.kpc # Default source distance set to 8.5 kiloparsecs for now, which is our seeing limit when observing
                                       # the bulge directly. Eventually this should vary with (l, b)
-# Currently designed only for "small field" populations with only one grid cell 
+# Currently designed only for "small field" populations with only one grid cell
 # (a single (l,b) value with some square degree angular size)
 
 STAR_BIN_DIR = os.path.join(sys.path[0], "star_bins")
@@ -70,12 +70,6 @@ STAR_BIN_FILENAME = STAR_POP_FILENAME[:-5] + "_star_bin.csv"
 STAR_BIN_FILEPATH = os.path.join(STAR_BIN_DIR, STAR_BIN_FILENAME)
 
 STAR_BIN_FIELDNAMES = ["dist", "mass_density_average", "delta_dist", "tau_addition_term", "tau_value_after_addition", "size"]
-
-def main():
-    if len(sys.argv) > 1 and sys.argv[1] == "alt":
-        calculate_rate_alt()
-    else:
-        calculate_rate()
 
 def calculate_rate_alt():
     star_info_dict = reading_in_star_population.read_star_pop(STAR_POP_FILEPATH, is_csv = True)
@@ -87,14 +81,38 @@ def calculate_rate_alt():
 
     tau_sum = 0
     dist_source = get_dist_source(coord_gal)
+    dist_lens_list = []
+    tau_sum_list = []
+    tau_addition_term_list = []
     for star in star_pop:
         dist_lens = float(star["Dist"]) * units.kpc
-        mass = float(star["Mass"]) * units.solMass   
+        mass = float(star["Mass"]) * units.solMass
         dist_rel = 1 / ( (1/dist_lens) - (1/dist_source) )
         solid_angle_dimensionless = SOLID_ANGLE_DEFAULT.to(units.dimensionless_unscaled, equivalencies=units.dimensionless_angles())
         tau_addition_term = ( 4*np.pi*G*mass/c**2 / dist_rel ) / solid_angle_dimensionless
         tau_addition_term = tau_addition_term.decompose()
         tau_sum += tau_addition_term
+
+        dist_lens_list.append(dist_lens.copy())
+        tau_sum_list.append(tau_sum.copy())
+        tau_addition_term_list.append(tau_addition_term.copy())
+
+    dist_lens_list = units.Quantity(dist_lens_list)
+    tau_sum_list = units.Quantity(tau_sum_list)
+    tau_addition_term_list = units.Quantity(tau_addition_term_list)
+
+    plt.plot(dist_lens_list, tau_sum_list, "ro")
+    plt.xlabel("lens distance (%s)" % dist_lens_list.unit)
+    plt.ylabel("tau sum value after addition of term at this lens distance (%s)"
+                % tau_sum_list.unit)
+    plt.show()
+
+    plt.plot(dist_lens_list, tau_addition_term_list, "ro")
+    plt.xlabel("lens distance (%s)" % dist_lens_list.unit)
+    plt.ylabel("term added to tau value at this lens distance (%s)"
+                % tau_addition_term_list.unit)
+    plt.show()
+
     print tau_sum
 
 def calculate_rate():
@@ -120,7 +138,7 @@ def calculate_rate():
         dist = float(star["Dist"]) * units.kpc
         mass = float(star["Mass"]) * units.solMass
         logger.debug("dist: %s                 mass: %s" % (dist, mass))
-        
+
         # If this is the first iteration, the previous distance is set to 0
         if i > 0:
             last_dist = float(star_pop[i - 1]["Dist"]) * units.kpc
@@ -135,7 +153,7 @@ def calculate_rate():
         If current and previous distance don't match, we've moved on to another bin of stars.
         Averages mass density values from the bin of stars that was just completed;
         calculates a tau term from this density, the source distance, and the distances of the completed
-        star bin and the previous star bin; and adds term to the tau sum. 
+        star bin and the previous star bin; and adds term to the tau sum.
 
         Finally, move on to the next bin by updating the last bin distance and emptying the
         current mass density bin.
@@ -154,7 +172,7 @@ def calculate_rate():
                 tau_addition_term = get_tau_addition_term(ro_average, last_dist, dist_source, delta_dist)
                 logger.debug("Adding to tau: %s" % tau_addition_term)
                 tau_sum += tau_addition_term
-                
+
 
                 bin_dict = {"dist": last_dist, "mass_density_average": ro_average, "delta_dist": delta_dist, \
                             "tau_addition_term": tau_addition_term.copy(), "tau_value_after_addition": tau_sum.copy(), "size": bin_size}
@@ -162,7 +180,7 @@ def calculate_rate():
                 #print "star bin added, tau value: %s" % star_bins[-1]["tau_value_after_addition"]
                 #print "tau sum: %s" % tau_sum
                 #print "tau value after addition: %s" % bin_dict["tau_value_after_addition"]
-            
+
             last_bin_dist = last_dist
             mass_density_bin = []
 
@@ -179,7 +197,7 @@ def calculate_rate():
                 #if error_counter >= 0:
                     #sys.exit()
         """
-                
+
 
         # Calculate mass density for from, current bin distance, and last bin distance and append
         # to mass density bin.
@@ -199,8 +217,8 @@ def calculate_rate():
         writer = csv.DictWriter(star_bin_file, fieldnames=STAR_BIN_FIELDNAMES)
         writer.writeheader()
         for bin_dict in star_bins:
-            writer.writerow(bin_dict) 
-    if len(star_bins) > 0:    
+            writer.writerow(bin_dict)
+    if len(star_bins) > 0:
         plot_star_bins(star_bins)
 
 def plot_star_bins(star_bins):
@@ -217,7 +235,7 @@ def plot_star_bins(star_bins):
         delta_dists.append(star_bin["delta_dist"])
         tau_values_after_addition.append(star_bin["tau_value_after_addition"])
         tau_addition_terms.append(star_bin["tau_addition_term"])
-    
+
     # Make lists into Quantities of lists rather than lists of Quantities
     # Allows us to get values and unit attributes from each group
     dists = units.Quantity(dists)
@@ -225,7 +243,7 @@ def plot_star_bins(star_bins):
     mass_density_averages = units.Quantity(mass_density_averages)
     delta_dists = units.Quantity(delta_dists)
     tau_values_after_addition = units.Quantity(tau_values_after_addition)
-    tau_addition_terms = units.Quantity(tau_addition_terms)    
+    tau_addition_terms = units.Quantity(tau_addition_terms)
 
     plt.plot(dists, bin_sizes, "ro")
     plt.xlabel("distance (%s)" % dists.unit)
@@ -281,7 +299,7 @@ def get_mass_density(mass, dist_1, dist_2):
 def get_delta_volume(dist_1, dist_2):
     if CALCULATE_SOLID_ANGLE:
         pass
-        logger.debug("Attempting to calculate solid angle, but this feature isn't ready.") 
+        logger.debug("Attempting to calculate solid angle, but this feature isn't ready.")
         logger.debug("User should set CALCULATE_SOLID_ANGLE flag to false.")
         logger.debug("Setting solid angle to default value %s" % (SOLID_ANGLE_DEFAULT))
     solid_angle = SOLID_ANGLE_DEFAULT
@@ -290,7 +308,7 @@ def get_delta_volume(dist_1, dist_2):
     delta_volume = (dist_2**3 - dist_1**3)/3.0 * solid_angle_dimensionless
     logger.debug("dist_1: %s" % dist_1)
     logger.debug("dist_2: %s" % dist_2)
-    logger.debug("delta_volume: %s" % delta_volume) 
+    logger.debug("delta_volume: %s" % delta_volume)
     return delta_volume
 
 def get_solid_angle(l_i, l_f, b_i, b_f):
@@ -298,7 +316,12 @@ def get_solid_angle(l_i, l_f, b_i, b_f):
     solid_angle = np.abs(delta_l * (np.sin(b_f)- np.sin(b_i)))
     logger.debug("solid_angle: %s" % solid_angle)
     return solid_angle
-    
+
+def main():
+    if len(sys.argv) > 1 and sys.argv[1] == "alt":
+        calculate_rate_alt()
+    else:
+        calculate_rate()
 
 if __name__ == "__main__":
     main()
