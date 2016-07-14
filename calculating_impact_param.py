@@ -45,8 +45,7 @@ def print_values(values_to_print):
     keys = ["mag_base", "mag_err", "mag_threshold", "magnif_min", "u_t", \
             "impact_param_weight"]
     values = values_to_print.values()
-
-
+    
     for key in keys:
         print "%s: %s" % (key, values_to_print[key])
 

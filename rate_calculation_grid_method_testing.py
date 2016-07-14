@@ -14,6 +14,7 @@ import logging
 import logger_setup
 import reading_in_star_population
 import plotting
+import calculating_impact_param
 
 LOGGER_ON = False # Enable or disable logger. Affects execution speed
 DEBUGGING_MODE = False # Turn this flag on if modifying and testing code - turn it off when actively being used
@@ -50,19 +51,22 @@ STAR_POP_DIR = os.path.join(sys.path[0], "star_population_tables_csv")
 #STAR_POP_FILENAME = "1467072296.449283.resu"
 #STAR_POP_FILENAME = "1466633557.703409.csv"
 #STAR_POP_FILENAME = "1467072296.449283_sample.csv"
-STAR_POP_FILENAME = "1467072296.449283_sample_0.0001.csv"
+#STAR_POP_FILENAME = "1467072296.449283_sample_0.0001.csv"
+STAR_POP_FILENAME = "1467072296.449283_sample_1e-05.csv"
 
 STAR_POP_FILEPATH = os.path.join(STAR_POP_DIR, STAR_POP_FILENAME)
 
 CALCULATE_SOLID_ANGLE = False # Determines whether solid angle is calculated from (l,b) values (used for "large field" models)
                               # or simply given (used for "small field" models)
-SOLID_ANGLE_DEFAULT = 1 * units.deg # Default value for solid angle of calculate flag is off
+SOLID_ANGLE_DEFAULT = 1 * units.deg * units.deg # Default value for solid angle of calculate flag is off
 
 DIST_SOURCE_DEFAULT = 50 * units.kpc # Default source distance set to 8.5 kiloparsecs for now, which is our seeing limit when observing
                                       # the bulge directly. Eventually this should vary with (l, b)
+
+u_MAX = 1 # default value for u_max, the maximum impact parameter for which we consider a microlensing event to have ocurred
+
 # Currently designed only for "small field" populations with only one grid cell
 # (a single (l,b) value with some square degree angular size)
-
 STAR_BIN_DIR = os.path.join(sys.path[0], "star_bins")
 if not os.path.exists(STAR_BIN_DIR):
     os.makedirs(STAR_BIN_DIR)
@@ -72,37 +76,78 @@ STAR_BIN_FILEPATH = os.path.join(STAR_BIN_DIR, STAR_BIN_FILENAME)
 STAR_BIN_FIELDNAMES = ["dist", "mass_density_average", "delta_dist", "tau_addition_term", "tau_value_after_addition", "size"]
 
 def calculate_rate_alt_with_impact_param():
-    star_info_dict = reading_in_star_population.read_star_pop(STAR_POP_FILEPATH, is_csv = True)
-    star_pop = star_info_dict["star_pop"]
-    if star_info_dict.has_key("coordinates_gal") and star_info_dict["coordinates_gal"] is not None:
-        coord_gal = float(star_info_dict["coordinates_gal"]) * units.deg
-    else:
-        coord_gal = None
+    star_catalogue_example = reading_in_star_population.read_star_pop(STAR_POP_FILEPATH, is_csv = True)
+    star_catalogue_example["solid_angle"] = SOLID_ANGLE_DEFAULT
 
-    tau_sum = 0
-    dist_source = get_dist_source(coord_gal)
-    dist_lens_list = []
-    tau_sum_list = []
+    star_catalogue_lens_list = [star_catalogue_example]
+    star_catalogue_source_list = [star_catalogue_example]
+
+    #tau_sum_list = []
     tau_addition_term_list = []
+    tau_sum_catalogue_source = 0
+    for star_catalogue_source in star_catalogue_source_list:
+        star_pop_source = star_catalogue_source["star_pop"]
+        solid_angle_source =  star_catalogue_source["solid_angle"]
 
-    for star_source in star_pop:
-        mag_source = star_source["Mv"]
-        impact_param_weight = calculating_impact_param.simulate_impact_param_weight(mag_source)
-        tau_sum * impact_param_weight
+        tau_sum_source = 0
+        for star_source in star_pop_source:
+            mag_source = float(star_source["Mv"])
+            dist_source = float(star_source["Dist"]) * units.kpc
+            impact_param_weight = \
+                calculating_impact_param.simulate_impact_param_weight(mag_source)
 
-        tau_lens_sum = 0
-        for star_lens in star_pop:
-            dist_lens = float(star_lens["Dist"]) * units.kpc
-            mass = float(star_lens["Mass"]) * units.solMass
-            dist_rel = 1 / ( (1/dist_lens) - (1/dist_source) )
-            solid_angle_dimensionless = SOLID_ANGLE_DEFAULT.to(units.dimensionless_unscaled, equivalencies=units.dimensionless_angles())
-            tau_addition_term = ( 4*np.pi*G*mass/c**2 / dist_rel ) / solid_angle_dimensionless
-            tau_lens_addition_term = tau_lens_addition_term.decompose()
-            tau_lens_sum += tau_lens_addition_term
+            tau_sum_catalogue_lens = 0
+            for star_catalogue_lens in star_catalogue_lens_list:
+                star_pop_lens = star_catalogue_lens["star_pop"]
+                solid_angle_lens = star_catalogue_lens["solid_angle"]
 
-            #dist_lens_list.append(dist_lens.copy())
-            #tau_sum_list.append(tau_sum.copy())
-            #tau_addition_term_list.append(tau_addition_term.co
+                tau_sum_lens = 0
+                for star_lens in star_pop_lens:
+                    mass_lens = float(star_lens["Mass"]) * units.solMass
+                    dist_lens = float(star_lens["Dist"]) * units.kpc
+                    if dist_lens < dist_source:
+                        angular_einstein_radius = \
+                            get_angular_einstein_radius(mass_lens, dist_lens, dist_source)
+                        tau_addition_term_lens = np.pi * angular_einstein_radius*angular_einstein_radius / solid_angle_lens
+                        tau_sum_lens += tau_addition_term_lens
+                        #print tau_addition_term_lens.decompose()
+                        tau_addition_term_list.append(tau_addition_term_lens.decompose())
+                        #print tau_addition_term_list
+                tau_sum_catalogue_lens += tau_sum_lens
+            tau_sum_source += tau_sum_catalogue_lens * impact_param_weight
+        tau_sum_catalogue_source += tau_sum_source / solid_angle_source
+
+    tau_sum = tau_sum_catalogue_source * u_MAX * u_MAX
+
+    print "Getting inverse weight..."
+    tau_sum_inverse_weight = get_inverse_weight(star_catalogue_source_list)
+    tau_sum *= tau_sum_inverse_weight
+
+    tau_sum = tau_sum.decompose()
+    tau_addition_term_list = units.Quantity(tau_addition_term_list).value
+    print tau_sum
+    print tau_addition_term_list
+    plt.plot(tau_addition_term_list, "ro")
+    plt.xlabel("index")
+    plt.ylabel("term added to tau")
+    plt.show()
+
+def get_inverse_weight(star_catalogue_source_list):
+    weight_sum_catalogue_source = 0
+    for star_catalogue_source in star_catalogue_source_list:
+        star_pop_source = star_catalogue_source["star_pop"]
+        solid_angle_source = star_catalogue_source["solid_angle"]
+        weight_sum_source = 0
+        for star_source in star_pop_source:
+            mag_source = float(star_source["Mv"])
+            impact_param_weight = \
+                calculating_impact_param.simulate_impact_param_weight(mag_source)
+            weight_sum_source += impact_param_weight
+        weight_sum_catalogue_source += weight_sum_source / solid_angle_source
+
+    weight_sum = 1 / weight_sum_catalogue_source
+    return weight_sum
+
 
 def calculate_rate_alt():
     star_info_dict = reading_in_star_population.read_star_pop(STAR_POP_FILEPATH, is_csv = True)
@@ -230,8 +275,6 @@ def calculate_rate():
                 #if error_counter >= 0:
                     #sys.exit()
         """
-
-
         # Calculate mass density for from, current bin distance, and last bin distance and append
         # to mass density bin.
         mass_density = get_mass_density(mass, last_bin_dist, dist)
@@ -245,6 +288,9 @@ def calculate_rate():
             #print "First star bin tau value: %s" % star_bins[0]["tau_value_after_addition"]
     logger.info("Final tau_sum: %s" % tau_sum)
     logger.info("Number of bins: %s" % len(star_bins))
+
+    print "Final tau_sum: %s" % tau_sum
+    print "Number of bins: %s" % len(star_bins)
 
     with open(STAR_BIN_FILEPATH, "w") as star_bin_file:
         writer = csv.DictWriter(star_bin_file, fieldnames=STAR_BIN_FIELDNAMES)
@@ -350,13 +396,17 @@ def get_solid_angle(l_i, l_f, b_i, b_f):
     logger.debug("solid_angle: %s" % solid_angle)
     return solid_angle
 
-def get_angular_einstein_radius(mass_lens, dist_lense, dist_source):
-  theta = np.sqrt(4 * G * mass_lens * (dist_source - dist_lens) \
-          / (c**2 * dist_source * dist_lens))
+def get_angular_einstein_radius(mass_lens, dist_lens, dist_source):
+    theta = ( np.sqrt(4 * G * mass_lens * (dist_source - dist_lens) \
+          / (c*c * dist_source * dist_lens)) ) * units.deg
+    return theta
 
 def main():
-    if len(sys.argv) > 1 and sys.argv[1] == "alt":
-        calculate_rate_alt()
+    if len(sys.argv) > 1:
+        if sys.argv[1] == "alt":
+            calculate_rate_alt()
+        elif sys.argv[1] == "alt_with_impact_param":
+            calculate_rate_alt_with_impact_param()
     else:
         calculate_rate()
 
