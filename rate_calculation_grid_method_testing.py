@@ -51,8 +51,8 @@ STAR_POP_DIR = os.path.join(sys.path[0], "star_population_tables_csv")
 #STAR_POP_FILENAME = "1467072296.449283.resu"
 #STAR_POP_FILENAME = "1466633557.703409.csv"
 #STAR_POP_FILENAME = "1467072296.449283_sample.csv"
-#STAR_POP_FILENAME = "1467072296.449283_sample_0.0001.csv"
-STAR_POP_FILENAME = "1467072296.449283_sample_1e-05.csv"
+STAR_POP_FILENAME = "1467072296.449283_sample_0.0001.csv"
+#STAR_POP_FILENAME = "1467072296.449283_sample_1e-05.csv"
 
 STAR_POP_FILEPATH = os.path.join(STAR_POP_DIR, STAR_POP_FILENAME)
 
@@ -76,12 +76,14 @@ STAR_BIN_FILEPATH = os.path.join(STAR_BIN_DIR, STAR_BIN_FILENAME)
 STAR_BIN_FIELDNAMES = ["dist", "mass_density_average", "delta_dist", "tau_addition_term", "tau_value_after_addition", "size"]
 
 def calculate_rate_alt_with_impact_param():
+    # Set up the example source and lens catalogue lists
+    # For now each catalogue lists consists of a single catalogue
     star_catalogue_example = reading_in_star_population.read_star_pop(STAR_POP_FILEPATH, is_csv = True)
     star_catalogue_example["solid_angle"] = SOLID_ANGLE_DEFAULT
-
     star_catalogue_lens_list = [star_catalogue_example]
     star_catalogue_source_list = [star_catalogue_example]
 
+    # Iterate over each source catalogue
     #tau_sum_list = []
     tau_addition_term_list = []
     tau_sum_catalogue_source = 0
@@ -89,6 +91,7 @@ def calculate_rate_alt_with_impact_param():
         star_pop_source = star_catalogue_source["star_pop"]
         solid_angle_source =  star_catalogue_source["solid_angle"]
 
+        # Iterate over each source in the catalogue
         tau_sum_source = 0
         for star_source in star_pop_source:
             mag_source = float(star_source["Mv"])
@@ -96,37 +99,47 @@ def calculate_rate_alt_with_impact_param():
             impact_param_weight = \
                 calculating_impact_param.simulate_impact_param_weight(mag_source)
 
+            # Iterate over each lens catalogue
             tau_sum_catalogue_lens = 0
             for star_catalogue_lens in star_catalogue_lens_list:
                 star_pop_lens = star_catalogue_lens["star_pop"]
                 solid_angle_lens = star_catalogue_lens["solid_angle"]
 
+                # Iterate over each lens in the catalogue
                 tau_sum_lens = 0
                 for star_lens in star_pop_lens:
                     mass_lens = float(star_lens["Mass"]) * units.solMass
                     dist_lens = float(star_lens["Dist"]) * units.kpc
+
+                    # Get tau addition term if lens is closer than source,
+                    # using source properties and lens catalogue's solid angle
                     if dist_lens < dist_source:
                         angular_einstein_radius = \
                             get_angular_einstein_radius(mass_lens, dist_lens, dist_source)
                         tau_addition_term_lens = np.pi * angular_einstein_radius*angular_einstein_radius / solid_angle_lens
                         tau_sum_lens += tau_addition_term_lens
-                        #print tau_addition_term_lens.decompose()
                         tau_addition_term_list.append(tau_addition_term_lens.decompose())
-                        #print tau_addition_term_list
+
+                # Add sum over lenses to sum over lens catalogues
                 tau_sum_catalogue_lens += tau_sum_lens
+            # Multiply sum over lens catalogues by impact param weight (U),
+            # and add to sum over sources
             tau_sum_source += tau_sum_catalogue_lens * impact_param_weight
+        # Divide the sum over sources by the source catalogue's solid angle,
+        # and add to sum over souce catalogues
         tau_sum_catalogue_source += tau_sum_source / solid_angle_source
 
+    # Multiply sum over source catalogues by square of the maximum impact parameter for a microlensing event
+    # and store as tau sum
     tau_sum = tau_sum_catalogue_source * u_MAX * u_MAX
 
-    print "Getting inverse weight..."
+    # Get inverse weight, which iterates of source catalogues, and multiply tau sum by it
     tau_sum_inverse_weight = get_inverse_weight(star_catalogue_source_list)
     tau_sum *= tau_sum_inverse_weight
 
-    tau_sum = tau_sum.decompose()
     tau_addition_term_list = units.Quantity(tau_addition_term_list).value
     print tau_sum
-    print tau_addition_term_list
+    #print tau_addition_term_list
     plt.plot(tau_addition_term_list, "ro")
     plt.xlabel("index")
     plt.ylabel("term added to tau")
