@@ -104,7 +104,6 @@ def calculate_rate_alt_with_impact_param():
             #tau_sum_list.append(tau_sum.copy())
             #tau_addition_term_list.append(tau_addition_term.co
 
-
 def calculate_rate_alt():
     star_info_dict = reading_in_star_population.read_star_pop(STAR_POP_FILEPATH, is_csv = True)
     star_pop = star_info_dict["star_pop"]

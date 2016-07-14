@@ -19,17 +19,6 @@ def get_magnification(mag_brighter, mag_dimmer):
 
 values_to_print = {}
 
-def main():
-    if len(sys.argv) > 1:
-        mag_base = float(sys.argv[1])
-    else:
-        mag_base = 15
-    impact_param_weight = simulate_impact_param_weight(mag_base)
-
-    values_to_print["impact_param_weight"] = impact_param_weight
-    values_to_print["mag_base"] = mag_base
-    print_values(values_to_print)
-
 def simulate_impact_param_weight(mag_base):
     u_t = simulate_impact_param_threshold(mag_base)
     impact_param_weight = get_impact_param_weight(u_t)
@@ -39,7 +28,7 @@ def simulate_impact_param_weight(mag_base):
 
 def simulate_impact_param_threshold(mag_base):
     mag_err = simulating_mag_error.simulate_mag_error(mag_base)
-    mag_threshold = mag_base - (2*mag_err) # Or should it be mag - mag_err ?
+    mag_threshold = mag_base - (3*mag_err)
 
     magnif_min = get_magnification(mag_threshold, mag_base)
 
@@ -60,6 +49,17 @@ def print_values(values_to_print):
 
     for key in keys:
         print "%s: %s" % (key, values_to_print[key])
+
+def main():
+    if len(sys.argv) > 1:
+        mag_base = float(sys.argv[1])
+    else:
+        mag_base = 15
+    impact_param_weight = simulate_impact_param_weight(mag_base)
+
+    values_to_print["impact_param_weight"] = impact_param_weight
+    values_to_print["mag_base"] = mag_base
+    print_values(values_to_print)
 
 if __name__ == "__main__":
     main()

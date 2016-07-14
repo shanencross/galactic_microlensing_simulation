@@ -4,6 +4,7 @@ simulating_mag_error.py
 
 import sys
 import numpy as np
+import matplotlib.pyplot as plt
 
 def simulate_mag_error(mag, precision_model='1m', debug=False):
     """Method to approximate the photometric precision possible
@@ -81,13 +82,50 @@ def simulate_mag_error(mag, precision_model='1m', debug=False):
 
     return merr
 
+def print_magnitude_error(mag):
+    mag_error = simulate_mag_error(mag, precision_model = "1m")
+    print "Mag %s returns mag error: %s" % (mag, mag_error)
+
+def plot_error(mag_dimmer, mag_brighter, mag_step = 0.1):
+    if mag_step is None:
+        mag_step = 0.5
+
+    mag_list = np.arange(mag_brighter, mag_dimmer, mag_step)
+    #mag_error_list = [simulate_mag_error(mag) for mag in mag_list]
+    mag_error_list = simulate_mag_error(mag_list, precision_model = "1m")
+    plt.plot(mag_list, mag_error_list, "ro--")
+    plt.xlabel("magnitude")
+    plt.ylabel("magnitude error")
+    plt.show()
+
 def main():
-    if len(sys.argv) > 1:
-        mag = float(sys.argv[1])
+    if len(sys.argv) > 2:
+        mag_1 = float(sys.argv[1])
+        mag_2 = float(sys.argv[2])
+
+        if mag_1 == mag_2:
+            print_magnitude_error(mag_1)
+        else:
+            if mag_1 > mag_2:
+                mag_dimmer = mag_1
+                mag_brighter = mag_2
+            else:
+                mag_dimmer = mag_2
+                mag_brighter = mag_1
+            if len(sys.argv) > 3:
+                mag_step = float(sys.argv[3])
+            else:
+                mag_step = None
+
+            print "Dimmer: %s       Brighter: %s" % (mag_dimmer, mag_brighter)
+            plot_error(mag_dimmer, mag_brighter, mag_step)
+
     else:
-        mag = 14
-    print "Mag %s returns mag error: %s" % (mag, sim_mag_error(mag, \
-                                        precision_model = "1m", debug=True))
+        if len(sys.argv) > 1:
+            mag = float(sys.argv[1])
+        else:
+            mag = 14
+        print_magnitude_error(mag)
 
 if __name__ == "__main__":
     main()
