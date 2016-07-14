@@ -130,6 +130,8 @@ def calculate_rate_alt():
         tau_sum_list.append(tau_sum.copy())
         tau_addition_term_list.append(tau_addition_term.copy())
 
+    print tau_sum
+
     dist_lens_list = units.Quantity(dist_lens_list)
     tau_sum_list = units.Quantity(tau_sum_list)
     tau_addition_term_list = units.Quantity(tau_addition_term_list)
@@ -145,8 +147,6 @@ def calculate_rate_alt():
     plt.ylabel("term added to tau value at this lens distance (%s)"
                 % tau_addition_term_list.unit)
     plt.show()
-
-    print tau_sum
 
 def calculate_rate():
     #star_info_dict = reading_in_star_population.read_star_pop(STAR_POP_FILEPATH, is_csv = False)
