@@ -109,11 +109,38 @@ def plot_error(mag_dimmer, mag_brighter, mag_step = 0.1):
         star_noise_list.append(error_dict["star_noise"])
         scintillation_noise_list.append(error_dict["scintillation_noise"])
 
+    x_label =  "magnitude"
     lists_to_plot = [mag_error_list, read_noise_list, sky_noise_list, star_noise_list, scintillation_noise_list]
-    names_of_lists_to_plot = ["magnitude error", "read noise", "sky noise", "star noise", "scintillation noise"]
+    labels_of_lists_to_plot = ["magnitude error", "read noise", "sky noise", "star noise", "scintillation noise"]
+
+    style_string_list = ["ro--", "bv--", "g^--", "c<--", "m>--"]
+    generate_overlapping_plots("magnitude", labels_of_lists_to_plot, mag_list, lists_to_plot, style_string_list)
+    generate_overlapping_plots("magnitude", labels_of_lists_to_plot, mag_list, lists_to_plot, style_string_list, \
+                               take_log_y = True)
 
     for i in xrange(len(lists_to_plot)):
-        generate_plots("magnitude", names_of_lists_to_plot[i], mag_list, lists_to_plot[i], "ro--")
+        generate_plots(x_label, labels_of_lists_to_plot[i], mag_list, lists_to_plot[i], "ro--")
+
+
+def generate_overlapping_plots(x_label, y_label_list, x_list, y_lists_to_plot, \
+                               style_string_list, take_log_x = False, take_log_y = False):
+    if take_log_x:
+        x_list = np.log10(x_list)
+        x_label = "log10(%s)" % x_label
+    if take_log_y:
+        y_lists_to_plot = np.log10(y_lists_to_plot)
+        y_label_list = ["log10(%s)" % y_label for y_label in y_label_list]
+
+    for i in xrange(len(y_lists_to_plot)):
+        y_label = y_label_list[i]
+        y_list = y_lists_to_plot[i]
+        style_string = style_string_list[i]
+
+        plt.plot(x_list, y_list, style_string, label=y_label)
+        plt.xlabel(x_label)
+    plt.legend(loc="upper_left")
+    plt.show()
+
 
 def generate_plots(x_label, y_label, x_list, y_list, style_string):
     # plot y vs x
