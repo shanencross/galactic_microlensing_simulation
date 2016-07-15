@@ -6,7 +6,7 @@ import sys
 import numpy as np
 import matplotlib.pyplot as plt
 
-def simulate_mag_error(mag, precision_model='1m', debug=False):
+def simulate_mag_error(mag, precision_model='1m', debug=False, error_debug=False):
     """Method to approximate the photometric precision possible
     for a given telescope"""
 
@@ -80,7 +80,12 @@ def simulate_mag_error(mag, precision_model='1m', debug=False):
         #if merr > 10.0:
          #   exit()
 
-    return merr
+    if error_debug:
+        error_dict = {"mag_err": merr, "sky_noise": skynoise, "star_noise": starnoise,\
+                            "scintillation_noise": scintnoise, "read_noise": readnoise}
+        return error_dict
+    else:
+        return merr
 
 def print_magnitude_error(mag):
     mag_error = simulate_mag_error(mag, precision_model = "1m")
@@ -91,12 +96,40 @@ def plot_error(mag_dimmer, mag_brighter, mag_step = 0.1):
         mag_step = 0.5
 
     mag_list = np.arange(mag_brighter, mag_dimmer, mag_step)
-    #mag_error_list = [simulate_mag_error(mag) for mag in mag_list]
-    mag_error_list = simulate_mag_error(mag_list, precision_model = "1m")
-    plt.plot(mag_list, mag_error_list, "ro--")
-    plt.xlabel("magnitude")
-    plt.ylabel("magnitude error")
+    mag_error_list = []
+    read_noise_list = []
+    sky_noise_list = []
+    star_noise_list = []
+    scintillation_noise_list = []
+    for mag in mag_list:
+        error_dict = simulate_mag_error(mag, precision_model = "1m", error_debug=True)
+        mag_error_list.append(error_dict["mag_err"])
+        read_noise_list.append(error_dict["read_noise"])
+        sky_noise_list.append(error_dict["sky_noise"])
+        star_noise_list.append(error_dict["star_noise"])
+        scintillation_noise_list.append(error_dict["scintillation_noise"])
+
+    lists_to_plot = [mag_error_list, read_noise_list, sky_noise_list, star_noise_list, scintillation_noise_list]
+    names_of_lists_to_plot = ["magnitude error", "read noise", "sky noise", "star noise", "scintillation noise"]
+
+    for i in xrange(len(lists_to_plot)):
+        generate_plots("magnitude", names_of_lists_to_plot[i], mag_list, lists_to_plot[i], "ro--")
+
+def generate_plots(x_label, y_label, x_list, y_list, style_string):
+    # plot y vs x
+    plt.plot(x_list, y_list, style_string)
+    plt.xlabel(x_label)
+    plt.ylabel(y_label)
     plt.show()
+
+    y_log_list = np.log10(y_list)
+
+    # plot log10(y) vs x
+    plt.plot(x_list, y_log_list, style_string)
+    plt.xlabel(x_label)
+    plt.ylabel("log10(%s)" % y_label)
+    plt.show()
+
 
 def main():
     if len(sys.argv) > 2:

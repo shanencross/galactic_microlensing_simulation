@@ -51,8 +51,8 @@ STAR_POP_DIR = os.path.join(sys.path[0], "star_population_tables_csv")
 #STAR_POP_FILENAME = "1467072296.449283.resu"
 #STAR_POP_FILENAME = "1466633557.703409.csv"
 #STAR_POP_FILENAME = "1467072296.449283_sample.csv"
-STAR_POP_FILENAME = "1467072296.449283_sample_0.0001.csv"
-#STAR_POP_FILENAME = "1467072296.449283_sample_1e-05.csv"
+#STAR_POP_FILENAME = "1467072296.449283_sample_0.0001.csv"
+STAR_POP_FILENAME = "1467072296.449283_sample_1e-05.csv"
 
 STAR_POP_FILEPATH = os.path.join(STAR_POP_DIR, STAR_POP_FILENAME)
 
@@ -64,6 +64,9 @@ DIST_SOURCE_DEFAULT = 50 * units.kpc # Default source distance set to 8.5 kilopa
                                       # the bulge directly. Eventually this should vary with (l, b)
 
 u_MAX = 1 # default value for u_max, the maximum impact parameter for which we consider a microlensing event to have ocurred
+
+IMPACT_PARAM_WEIGHT_DEBUG = True # Turning debug flag on always returns a weight of 1,
+                                 # for testing in case something is wrong with the simulated weight
 
 # Currently designed only for "small field" populations with only one grid cell
 # (a single (l,b) value with some square degree angular size)
@@ -94,11 +97,13 @@ def calculate_rate_alt_with_impact_param():
         # Iterate over each source in the catalogue
         tau_sum_source = 0
         for star_source in star_pop_source:
-            mag_source = float(star_source["Mv"])
+            mag_V_source = float(star_source["V"])
             dist_source = float(star_source["Dist"]) * units.kpc
+            # Turning debug flag on always returns a weight of 1,
+            # for testing in case something is wrong with the simulated weight
             impact_param_weight = \
-                calculating_impact_param.simulate_impact_param_weight(mag_source)
-
+                calculating_impact_param.simulate_impact_param_weight(mag_V_source, debug=IMPACT_PARAM_WEIGHT_DEBUG)
+            #print impact_param_weight
             # Iterate over each lens catalogue
             tau_sum_catalogue_lens = 0
             for star_catalogue_lens in star_catalogue_lens_list:
@@ -152,15 +157,16 @@ def get_inverse_weight(star_catalogue_source_list):
         solid_angle_source = star_catalogue_source["solid_angle"]
         weight_sum_source = 0
         for star_source in star_pop_source:
-            mag_source = float(star_source["Mv"])
+            mag_V_source = float(star_source["V"])
+            # Turning debug flag on always returns a weight of 1,
+            # for testing in case something is wrong with the simulated weight
             impact_param_weight = \
-                calculating_impact_param.simulate_impact_param_weight(mag_source)
+                calculating_impact_param.simulate_impact_param_weight(mag_V_source, debug=IMPACT_PARAM_WEIGHT_DEBUG)
             weight_sum_source += impact_param_weight
         weight_sum_catalogue_source += weight_sum_source / solid_angle_source
 
     weight_sum = 1 / weight_sum_catalogue_source
     return weight_sum
-
 
 def calculate_rate_alt():
     star_info_dict = reading_in_star_population.read_star_pop(STAR_POP_FILEPATH, is_csv = True)
