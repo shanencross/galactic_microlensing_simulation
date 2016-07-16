@@ -416,8 +416,8 @@ def get_solid_angle(l_i, l_f, b_i, b_f):
     return solid_angle
 
 def get_angular_einstein_radius(mass_lens, dist_lens, dist_source):
-    theta = ( np.sqrt(4 * G * mass_lens * (dist_source - dist_lens) \
-          / (c*c * dist_source * dist_lens)) ) * units.deg
+    theta = ( ( np.sqrt(4 * G * mass_lens * (dist_source - dist_lens) \
+          / (c*c * dist_source * dist_lens)) ) * units.rad ).to(units.deg)
     return theta
 
 def main():

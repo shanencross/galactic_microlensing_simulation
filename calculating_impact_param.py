@@ -22,7 +22,9 @@ def get_magnification(mag_brighter, mag_dimmer):
 
 def simulate_impact_param_threshold(mag_base):
     mag_err = simulating_mag_error.simulate_mag_error(mag_base)
+    #mag_err = 0.1
     mag_threshold = mag_base - (3*mag_err)
+
 
     #print "mag_base: %s         mag threshold: %s" % (mag_base, mag_threshold)
     magnif_min = get_magnification(mag_threshold, mag_base)
