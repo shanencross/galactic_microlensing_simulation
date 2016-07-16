@@ -151,7 +151,7 @@ def generate_overlapping_plots(x_label, y_label_list, x_list, y_lists_to_plot, \
 
         plt.plot(x_list, y_list, style_string, label=y_label)
         plt.xlabel(x_label)
-    plt.legend(loc="upper_left")
+    plt.legend(loc="upper left")
     plt.show()
 
 
@@ -170,6 +170,36 @@ def generate_plots(x_label, y_label, x_list, y_list, style_string):
     plt.ylabel("log10(%s)" % y_label)
     plt.show()
 
+def simulate_mag_error_LSST_alt(mag):
+    """
+    Ok, so:
+
+    if mag == 16:
+        mag_err = 4 millimag (0.004 mag)
+
+    if mag == 19:
+        mag_err = 5 millimag (0.005 mag)
+
+    if mag == 20:
+        mag_err = 6 millimag (0.006 mag)
+
+    if mag == 21:
+        mag_err = 10 millimag (0.01 mag)
+
+    if mag == 22:
+        mag_err ~= 100 millimag (0.1 mag)
+
+    if mag == 24.5:
+        mag_err ~< 110 millimag (maybe 108?) (0.11 or 0.108 mag)
+
+    So we have close to a horizontal line from mag 16 to 20,
+    followed by a slow concave curve from 20 to 21,
+    followed by a linear increase from 21 to 24.5.
+
+    So let's have a horizontal line from 16 to 20,
+    and a linear function from 20 to 24.5. This should be fine
+    I think but let's test it.
+    """
 
 def main():
     if len(sys.argv) > 2:
