@@ -6,6 +6,8 @@ import sys
 import numpy as np
 import matplotlib.pyplot as plt
 
+PRECISION_MODEL = "LSST"
+
 def simulate_mag_error(mag, precision_model='1m', debug=False, error_debug=False):
     """Method to approximate the photometric precision possible
     for a given telescope"""
@@ -13,7 +15,7 @@ def simulate_mag_error(mag, precision_model='1m', debug=False, error_debug=False
     # Select simulation parameters depending on the class
     # of telescope selected:
     if precision_model == '1m':
-        ZP = 25.0
+        ZP = 22.0
         G = 2.0
         aperradius = 8.0
         RDN = 2.5
@@ -32,6 +34,17 @@ def simulate_mag_error(mag, precision_model='1m', debug=False, error_debug=False
         skybkgd = 5.0
         teldiam = 0.3
         scintillation_noise = False
+    elif precision_model == 'LSST':
+        ZP = 25.0
+        G = 2.0
+        aperradius = 8.0
+        RDN = 2.5
+        skybkgd = 250.0
+        airmass = 1.5
+        telheight = 2663.0
+        teldiam = 8.417
+        exptime = 15.0 # or 30?
+        scintillation_noise = True
     height_o = 8000.0
 
     flux = ( 10**( ( mag - ZP ) / -2.5 ) ) * G
@@ -88,7 +101,7 @@ def simulate_mag_error(mag, precision_model='1m', debug=False, error_debug=False
         return merr
 
 def print_magnitude_error(mag):
-    mag_error = simulate_mag_error(mag, precision_model = "1m")
+    mag_error = simulate_mag_error(mag, precision_model = PRECISION_MODEL)
     print "Mag %s returns mag error: %s" % (mag, mag_error)
 
 def plot_error(mag_dimmer, mag_brighter, mag_step = 0.1):
@@ -102,7 +115,7 @@ def plot_error(mag_dimmer, mag_brighter, mag_step = 0.1):
     star_noise_list = []
     scintillation_noise_list = []
     for mag in mag_list:
-        error_dict = simulate_mag_error(mag, precision_model = "1m", error_debug=True)
+        error_dict = simulate_mag_error(mag, precision_model = PRECISION_MODEL, error_debug=True)
         mag_error_list.append(error_dict["mag_err"])
         read_noise_list.append(error_dict["read_noise"])
         sky_noise_list.append(error_dict["sky_noise"])
