@@ -65,7 +65,9 @@ DIST_SOURCE_DEFAULT = 50 * units.kpc # Default source distance set to 8.5 kilopa
 
 u_MAX = 1 # default value for u_max, the maximum impact parameter for which we consider a microlensing event to have ocurred
 
-IMPACT_PARAM_WEIGHT_DEBUG = True # Turning debug flag on always returns a weight of 1,
+PRECISION_MODEL = "LSST"
+
+IMPACT_PARAM_WEIGHT_DEBUG = False # Turning debug flag on always returns a weight of 1,
                                  # for testing in case something is wrong with the simulated weight
 
 # Currently designed only for "small field" populations with only one grid cell
@@ -102,7 +104,8 @@ def calculate_rate_alt_with_impact_param():
             # Turning debug flag on always returns a weight of 1,
             # for testing in case something is wrong with the simulated weight
             impact_param_weight = \
-                calculating_impact_param.simulate_impact_param_weight(mag_V_source, debug=IMPACT_PARAM_WEIGHT_DEBUG)
+                calculating_impact_param.simulate_impact_param_weight(mag_V_source, \
+                    precision_model=PRECISION_MODEL, debug=IMPACT_PARAM_WEIGHT_DEBUG)
             #print impact_param_weight
             # Iterate over each lens catalogue
             tau_sum_catalogue_lens = 0
@@ -161,7 +164,8 @@ def get_inverse_weight(star_catalogue_source_list):
             # Turning debug flag on always returns a weight of 1,
             # for testing in case something is wrong with the simulated weight
             impact_param_weight = \
-                calculating_impact_param.simulate_impact_param_weight(mag_V_source, debug=IMPACT_PARAM_WEIGHT_DEBUG)
+                calculating_impact_param.simulate_impact_param_weight(mag_V_source, \
+                    precision_model = PRECISION_MODEL, debug=IMPACT_PARAM_WEIGHT_DEBUG)
             weight_sum_source += impact_param_weight
         weight_sum_catalogue_source += weight_sum_source / solid_angle_source
 

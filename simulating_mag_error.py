@@ -7,8 +7,16 @@ import numpy as np
 import matplotlib.pyplot as plt
 
 PRECISION_MODEL = "LSST"
+LSST_ALT_MODEL_ON = True
+if LSST_ALT_MODEL_ON:
+    ERROR_DEBUG = False
+else:
+    ERROR_DEBUG = True
 
-def simulate_mag_error(mag, precision_model='1m', debug=False, error_debug=False):
+SLOPE = None
+Y_INTERCEPT = None
+
+def simulate_mag_error(mag, precision_model=PRECISION_MODEL, debug=False, error_debug=False):
     """Method to approximate the photometric precision possible
     for a given telescope"""
 
@@ -35,16 +43,19 @@ def simulate_mag_error(mag, precision_model='1m', debug=False, error_debug=False
         teldiam = 0.3
         scintillation_noise = False
     elif precision_model == 'LSST':
-        ZP = 25.0
-        G = 2.0
-        aperradius = 8.0
-        RDN = 2.5
-        skybkgd = 250.0
-        airmass = 1.5
-        telheight = 2663.0
-        teldiam = 8.417
-        exptime = 15.0 # or 30?
-        scintillation_noise = True
+        if LSST_ALT_MODEL_ON:
+            return simulate_mag_error_LSST_alt(mag)
+        else:
+            ZP = 25.0
+            G = 2.0
+            aperradius = 8.0
+            RDN = 2.5
+            skybkgd = 250.0
+            airmass = 1.5
+            telheight = 2663.0
+            teldiam = 8.417
+            exptime = 15.0 # or 30?
+            scintillation_noise = True
     height_o = 8000.0
 
     flux = ( 10**( ( mag - ZP ) / -2.5 ) ) * G
@@ -96,15 +107,32 @@ def simulate_mag_error(mag, precision_model='1m', debug=False, error_debug=False
     if error_debug:
         error_dict = {"mag_err": merr, "sky_noise": skynoise, "star_noise": starnoise,\
                             "scintillation_noise": scintnoise, "read_noise": readnoise}
-        return error_dict
     else:
-        return merr
+        error_dict = {"mag_err": merr}
 
-def print_magnitude_error(mag):
-    mag_error = simulate_mag_error(mag, precision_model = PRECISION_MODEL)
-    print "Mag %s returns mag error: %s" % (mag, mag_error)
+    return error_dict
 
-def plot_error(mag_dimmer, mag_brighter, mag_step = 0.1):
+def print_magnitude_error(mag, precision_model=PRECISION_MODEL, error_debug=False):
+    error_dict = simulate_mag_error(mag, precision_model=precision_model, error_debug=error_debug)
+    mag_error = error_dict["mag_err"]
+    if error_dict.has_key("read_noise"):
+        read_noise = error_dict["read_noise"]
+    if error_dict.has_key("sky_noise"):
+        sky_noise = error_dict["sky_noise"]
+    if error_dict.has_key("star_noise"):
+        star_noise = error_dict["star_noise"]
+    if error_dict.has_key("scintillation_noise"):
+        scintillation_noise = error_dict["scintillation_noise"]
+
+    print "Mag %s returns:" % mag
+    print "Mag error: %s " % mag_error
+    if error_debug:
+        print "Read noise: %s" % read_noise
+        print "Sky noise: %s" % sky_noise
+        print "Star noise: %s" % star_noise
+        print "Scintillation noise: %s" % scintillation_noise
+
+def plot_error(mag_dimmer, mag_brighter, mag_step = 0.5, precision_model=PRECISION_MODEL, error_debug=False):
     if mag_step is None:
         mag_step = 0.5
 
@@ -115,25 +143,47 @@ def plot_error(mag_dimmer, mag_brighter, mag_step = 0.1):
     star_noise_list = []
     scintillation_noise_list = []
     for mag in mag_list:
-        error_dict = simulate_mag_error(mag, precision_model = PRECISION_MODEL, error_debug=True)
+        error_dict = simulate_mag_error(mag, precision_model=precision_model, error_debug=error_debug)
         mag_error_list.append(error_dict["mag_err"])
-        read_noise_list.append(error_dict["read_noise"])
-        sky_noise_list.append(error_dict["sky_noise"])
-        star_noise_list.append(error_dict["star_noise"])
-        scintillation_noise_list.append(error_dict["scintillation_noise"])
+        if error_dict.has_key("read_noise"):
+            read_noise_list.append(error_dict["read_noise"])
+        if error_dict.has_key("sky_noise"):
+            sky_noise_list.append(error_dict["sky_noise"])
+        if error_dict.has_key("star_noise"):
+            star_noise_list.append(error_dict["star_noise"])
+        if error_dict.has_key("scintillation_noise"):
+            scintillation_noise_list.append(error_dict["scintillation_noise"])
 
     x_label =  "magnitude"
-    lists_to_plot = [mag_error_list, read_noise_list, sky_noise_list, star_noise_list, scintillation_noise_list]
-    labels_of_lists_to_plot = ["magnitude error", "read noise", "sky noise", "star noise", "scintillation noise"]
 
-    style_string_list = ["ro--", "bv--", "g^--", "c<--", "m>--"]
+    if error_debug:
+        lists_to_plot = [mag_error_list, read_noise_list, sky_noise_list, star_noise_list, scintillation_noise_list]
+        labels_of_lists_to_plot = ["magnitude error", "read noise", "sky noise", "star noise", "scintillation noise"]
+        style_string_list = ["ro--", "bv--", "g^--", "c<--", "m>--"]
+    else:
+        lists_to_plot = [mag_error_list]
+        labels_of_lists_to_plot = ["magnitude error"]
+        style_string_list = ["ro--"]
+
+    # regular mag error plots
     generate_overlapping_plots("magnitude", labels_of_lists_to_plot, mag_list, lists_to_plot, style_string_list)
     generate_overlapping_plots("magnitude", labels_of_lists_to_plot, mag_list, lists_to_plot, style_string_list, \
                                take_log_y = True)
 
-    for i in xrange(len(lists_to_plot)):
-        generate_plots(x_label, labels_of_lists_to_plot[i], mag_list, lists_to_plot[i], "ro--")
+    if error_debug:
+        for i in xrange(len(lists_to_plot)):
+            generate_plots(x_label, labels_of_lists_to_plot[i], mag_list, lists_to_plot[i], style_string_list[i])
 
+    # milli mag error plots
+    milli_lists_to_plot = [[1000 * element for element in list] for list in lists_to_plot]
+    milli_labels_of_lists_to_plot = [("milli " + label) for label in labels_of_lists_to_plot]
+
+    generate_overlapping_plots("magnitude", milli_labels_of_lists_to_plot, mag_list, milli_lists_to_plot, style_string_list)
+    generate_overlapping_plots("magnitude", milli_labels_of_lists_to_plot, mag_list, milli_lists_to_plot, style_string_list, \
+                               take_log_y = True)
+    if error_debug:
+        for i in xrange(len(lists_to_plot)):
+            generate_plots(x_label, milli_labels_of_lists_to_plot[i], mag_list, milli_lists_to_plot[i], style_string_list[i])
 
 def generate_overlapping_plots(x_label, y_label_list, x_list, y_lists_to_plot, \
                                style_string_list, take_log_x = False, take_log_y = False):
@@ -199,15 +249,50 @@ def simulate_mag_error_LSST_alt(mag):
     So let's have a horizontal line from 16 to 20,
     and a linear function from 20 to 24.5. This should be fine
     I think but let's test it.
+
+    CORRECITON: PLOT Y-AXIS IS LOGARITHMIC.
+
+    So mag_error is not linear function of x.
+    But log10(mag_error) is a linear function of x.
     """
+    if mag < 20:
+        mag_error = 0.005
+    else:
+        if SLOPE is None or Y_INTERCEPT is None:
+            set_slope_and_y_intercept(mag)
+        if SLOPE is None or Y_INTERCEPT is None:
+            print "still None"
+            print "SLOPE: %s" % SLOPE
+            print "Y_INTERCEPT: %s" % Y_INTERCEPT
+
+        log10_mag_error = SLOPE * mag + Y_INTERCEPT
+        mag_error = 10**(log10_mag_error)
+
+    error_dict = {"mag_err": mag_error}
+    return error_dict
+
+def set_slope_and_y_intercept(mag):
+    global SLOPE
+    global Y_INTERCEPT
+
+    point_A = {"x": 20, "y": np.log10(0.005)}
+    point_B = {"x": 24.5, "y": np.log10(0.108)}
+
+    SLOPE = (point_B["y"] - point_A["y"]) / (point_B["x"] - point_A["x"])
+    Y_INTERCEPT = point_B["y"] - ( SLOPE * point_B["x"] )
+    #y_intercept_alt = point_A["y"] - ( SLOPE * point_A["x"])
+
+    print "slope: %s        y_intercept: %s" % (SLOPE, Y_INTERCEPT)
+    #print "y_intercept_alt: %s" % y_intercept_alt
 
 def main():
+    print "Precision model: %s" % PRECISION_MODEL
     if len(sys.argv) > 2:
         mag_1 = float(sys.argv[1])
         mag_2 = float(sys.argv[2])
 
         if mag_1 == mag_2:
-            print_magnitude_error(mag_1)
+            print_magnitude_error(mag_1, precision_model=PRECISION_MODEL, error_debug=ERROR_DEBUG)
         else:
             if mag_1 > mag_2:
                 mag_dimmer = mag_1
@@ -221,14 +306,14 @@ def main():
                 mag_step = None
 
             print "Dimmer: %s       Brighter: %s" % (mag_dimmer, mag_brighter)
-            plot_error(mag_dimmer, mag_brighter, mag_step)
+            plot_error(mag_dimmer, mag_brighter, mag_step, precision_model=PRECISION_MODEL, error_debug=ERROR_DEBUG)
 
     else:
         if len(sys.argv) > 1:
             mag = float(sys.argv[1])
         else:
             mag = 14
-        print_magnitude_error(mag)
+        print_magnitude_error(mag, error_debug=ERROR_DEBUG)
 
 if __name__ == "__main__":
     main()

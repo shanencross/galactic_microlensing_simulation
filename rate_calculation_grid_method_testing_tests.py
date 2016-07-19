@@ -17,10 +17,6 @@ def test_get_angular_einstein_radius():
                                                 dist_source)
     print angular_einstein_radius
 
-
-
-
-
 def main():
     test_get_angular_einstein_radius()
 
