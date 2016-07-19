@@ -67,7 +67,7 @@ u_MAX = 1 # default value for u_max, the maximum impact parameter for which we c
 
 PRECISION_MODEL = "LSST"
 
-IMPACT_PARAM_WEIGHT_DEBUG = False # Turning debug flag on always returns a weight of 1,
+IMPACT_PARAM_WEIGHT_DEBUG = True # Turning debug flag on always returns a weight of 1,
                                  # for testing in case something is wrong with the simulated weight
 
 # Currently designed only for "small field" populations with only one grid cell
@@ -106,6 +106,10 @@ def calculate_rate_alt_with_impact_param():
             impact_param_weight = \
                 calculating_impact_param.simulate_impact_param_weight(mag_V_source, \
                     precision_model=PRECISION_MODEL, debug=IMPACT_PARAM_WEIGHT_DEBUG)
+            if impact_param_weight != 1:
+                print "Impact parameter weight != 1"
+                print "Impact parameter weight: %s" % impact_param_weight
+                print "mag: %s" % mag_V_source
             #print impact_param_weight
             # Iterate over each lens catalogue
             tau_sum_catalogue_lens = 0

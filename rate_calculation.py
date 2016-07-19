@@ -93,58 +93,80 @@ def calculate_rate_alt_with_impact_param():
     tau_addition_term_list = []
     tau_sum_catalogue_source = 0
     for star_catalogue_source in star_catalogue_source_list:
-        star_pop_source = star_catalogue_source["star_pop"]
-        solid_angle_source =  star_catalogue_source["solid_angle"]
-
-        # Iterate over each source in the catalogue
-        tau_sum_source = 0
-        for star_source in star_pop_source:
-            mag_V_source = float(star_source["V"])
-            dist_source = float(star_source["Dist"]) * units.kpc
-            # Turning debug flag on always returns a weight of 1,
-            # for testing in case something is wrong with the simulated weight
-            impact_param_weight = \
-                calculating_impact_param.simulate_impact_param_weight(mag_V_source, precision_model=PRECISION_MODEL, debug=IMPACT_PARAM_WEIGHT_DEBUG)
-            #print impact_param_weight
-            # Iterate over each lens catalogue
-            tau_sum_catalogue_lens = 0
-            for star_catalogue_lens in star_catalogue_lens_list:
-                get_tau_addition_term_lens_catalogue(star_catalogue_lens)
-                star_pop_lens = star_catalogue_lens["star_pop"]
-                solid_angle_lens = star_catalogue_lens["solid_angle"]
-
-                # Iterate over each lens in the catalogue
-                tau_sum_lens = 0
-                for star_lens in star_pop_lens:
-                    tau_addition_term_lens = get_tau_addition_term_lens(star_lens, solid_angle_lens)
-                    tau_sum_lens += tau_addition_term_lens
-
-                # Add sum over lenses to sum over lens catalogues
-                tau_sum_catalogue_lens += tau_sum_lens
-            # Multiply sum over lens catalogues by impact param weight (U),
-            # and add to sum over sources
-            tau_sum_source += tau_sum_catalogue_lens * impact_param_weight
-        # Divide the sum over sources by the source catalogue's solid angle,
-        # and add to sum over souce catalogues
-        tau_sum_catalogue_source += tau_sum_source / solid_angle_source
+        tau_addition_term_catalogue_source = get_tau_addition_term_catalogue_source(star_catalogue_source, star_catalogue_lens_list)
+        tau_sum_catalogue_source += tau_addition_term_catalogue_source
 
     # Multiply sum over source catalogues by square of the maximum impact parameter for a microlensing event
     # and store as tau sum
-    tau_sum = tau_sum_catalogue_source * u_MAX * u_MAX
+    tau_sum_times_max_impact_param_squared = tau_sum_catalogue_source * u_MAX * u_MAX
 
     # Get inverse weight, which iterates of source catalogues, and multiply tau sum by it
-    tau_sum_inverse_weight = get_inverse_weight(star_catalogue_source_list)
-    tau_sum *= tau_sum_inverse_weight
+    tau_inverse_weight = get_inverse_weight(star_catalogue_source_list)
 
+    # Get final tau value
+    tau = tau_sum_times_max_impact_param_squared * tau_inverse_weight
+    print tau
+
+    """
     tau_addition_term_list = units.Quantity(tau_addition_term_list).value
-    print tau_sum
     #print tau_addition_term_list
     plt.plot(tau_addition_term_list, "ro")
     plt.xlabel("index")
     plt.ylabel("term added to tau")
     plt.show()
+    """
 
-def get_tau_addition_term_lens(star_lens, solid_angle_lens):
+def get_tau_addition_term_catalogue_source(star_catalogue_source, star_catalogue_lens_list):
+    star_pop_source = star_catalogue_source["star_pop"]
+    solid_angle_source =  star_catalogue_source["solid_angle"]
+
+    # Iterate over each source in the catalogue
+    tau_sum_source = 0
+    for star_source in star_pop_source:
+        tau_addition_term_source = get_tau_addition_term_source(star_source, star_catalogue_lens_list)
+    tau_sum_source += tau_addition_term_source
+
+    tau_addition_term_catalogue_source = tau_sum_source / solid_angle_source
+    return tau_addition_term_catalogue_source
+
+def get_tau_addition_term_source(star_source, star_catalogue_lens_list):
+    mag_V_source = float(star_source["V"])
+    dist_source = float(star_source["Dist"]) * units.kpc
+    # Turning debug flag on always returns a weight of 1,
+    # for testing in case something is wrong with the simulated weight
+    impact_param_weight = \
+        calculating_impact_param.simulate_impact_param_weight(mag_V_source, \
+            precision_model=PRECISION_MODEL, debug=IMPACT_PARAM_WEIGHT_DEBUG)
+
+    if impact_param_weight != 1:
+        print "Impact parameter weight != 1"
+        print "Impact parameter weight: %s" % impact_param_weight
+        print "mag: %s" % mag_V_source
+    #print impact_param_weight
+
+    # Iterate over each lens catalogue
+    tau_sum_catalogue_lens = 0
+    for star_catalogue_lens in star_catalogue_lens_list:
+        tau_sum_catalogue_lens += get_tau_addition_term_catalogue_lens(star_catalogue_lens, dist_source)
+
+    tau_addition_term_source = impact_param_weight * tau_sum_catalogue_lens
+    return tau_addition_term_source
+
+def get_tau_addition_term_catalogue_lens(star_catalogue_lens, dist_source):
+    star_pop_lens = star_catalogue_lens["star_pop"]
+    solid_angle_lens = star_catalogue_lens["solid_angle"]
+
+    # Iterate over each lens in the catalogue
+    tau_sum_lens = 0
+    for star_lens in star_pop_lens:
+        tau_addition_term_lens = get_tau_addition_term_lens(star_lens, solid_angle_lens, dist_source)
+        tau_sum_lens += tau_addition_term_lens
+
+    tau_addition_term_catalogue_lens = tau_sum_lens
+    return tau_addition_term_catalogue_lens
+
+
+def get_tau_addition_term_lens(star_lens, solid_angle_lens, dist_source):
     mass_lens = float(star_lens["Mass"]) * units.solMass
     dist_lens = float(star_lens["Dist"]) * units.kpc
 
@@ -154,8 +176,11 @@ def get_tau_addition_term_lens(star_lens, solid_angle_lens):
         angular_einstein_radius = \
             get_angular_einstein_radius(mass_lens, dist_lens, dist_source)
         tau_addition_term_lens = np.pi * angular_einstein_radius*angular_einstein_radius / solid_angle_lens
-        return tau_addition_term_lens
+    else:
+        tau_addition_term_lens = 0
         #tau_addition_term_list.append(tau_addition_term_lens.decompose())
+
+    return tau_addition_term_lens
 
 def get_inverse_weight(star_catalogue_source_list):
     weight_sum_catalogue_source = 0
