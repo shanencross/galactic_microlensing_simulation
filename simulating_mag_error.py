@@ -13,8 +13,8 @@ if LSST_ALT_MODEL_ON:
 else:
     ERROR_DEBUG = True
 
-SLOPE = None
-Y_INTERCEPT = None
+slope = None
+y_intercept = None
 
 def simulate_mag_error(mag, precision_model=PRECISION_MODEL, debug=False, error_debug=False):
     """Method to approximate the photometric precision possible
@@ -258,31 +258,31 @@ def simulate_mag_error_LSST_alt(mag):
     if mag < 20:
         mag_error = 0.005
     else:
-        if SLOPE is None or Y_INTERCEPT is None:
+        if slope is None or y_intercept is None:
             set_slope_and_y_intercept(mag)
-        if SLOPE is None or Y_INTERCEPT is None:
+        if slope is None or y_intercept is None:
             print "still None"
-            print "SLOPE: %s" % SLOPE
-            print "Y_INTERCEPT: %s" % Y_INTERCEPT
+            print "slope: %s" % slope
+            print "y_intercept: %s" % y_intercept
 
-        log10_mag_error = SLOPE * mag + Y_INTERCEPT
+        log10_mag_error = slope * mag + y_intercept
         mag_error = 10**(log10_mag_error)
 
     error_dict = {"mag_err": mag_error}
     return error_dict
 
 def set_slope_and_y_intercept(mag):
-    global SLOPE
-    global Y_INTERCEPT
+    global slope
+    global y_intercept
 
     point_A = {"x": 20, "y": np.log10(0.005)}
     point_B = {"x": 24.5, "y": np.log10(0.108)}
 
-    SLOPE = (point_B["y"] - point_A["y"]) / (point_B["x"] - point_A["x"])
-    Y_INTERCEPT = point_B["y"] - ( SLOPE * point_B["x"] )
-    #y_intercept_alt = point_A["y"] - ( SLOPE * point_A["x"])
+    slope = (point_B["y"] - point_A["y"]) / (point_B["x"] - point_A["x"])
+    y_intercept = point_B["y"] - ( slope * point_B["x"] )
+    #y_intercept_alt = point_A["y"] - ( slope * point_A["x"])
 
-    print "slope: %s        y_intercept: %s" % (SLOPE, Y_INTERCEPT)
+    print "slope: %s        y_intercept: %s" % (slope, y_intercept)
     #print "y_intercept_alt: %s" % y_intercept_alt
 
 def main():
