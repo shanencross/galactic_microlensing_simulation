@@ -1,5 +1,5 @@
 """
-rate_calculation_grid_method_testing.py
+rate_calculation.py
 @author Shanen Cross
 """
 import sys
@@ -80,7 +80,7 @@ STAR_BIN_FILEPATH = os.path.join(STAR_BIN_DIR, STAR_BIN_FILENAME)
 
 STAR_BIN_FIELDNAMES = ["dist", "mass_density_average", "delta_dist", "tau_addition_term", "tau_value_after_addition", "size"]
 
-def calculate_rate_alt_with_impact_param():
+def get_example_catalogue_lists():
     # Set up the example source and lens catalogue lists
     # For now each catalogue lists consists of a single catalogue
     star_catalogue_example = reading_in_star_population.read_star_pop(STAR_POP_FILEPATH, is_csv = True)
@@ -88,6 +88,11 @@ def calculate_rate_alt_with_impact_param():
     star_catalogue_lens_list = [star_catalogue_example]
     star_catalogue_source_list = [star_catalogue_example]
 
+    star_catalogue_list_dict = {"lens": star_catalogue_lens_list, "source": star_catalogue_source_list}
+
+    return star_catalogue_list_dict
+
+def calculate_tau_alt_with_impact_param(star_catalogue_lens_list, star_catalogue_source_list):
     # Iterate over each source catalogue
     #tau_sum_list = []
     tau_addition_term_list = []
@@ -116,6 +121,8 @@ def calculate_rate_alt_with_impact_param():
     plt.ylabel("term added to tau")
     plt.show()
     """
+
+    return tau
 
 def get_tau_addition_term_catalogue_source(star_catalogue_source, star_catalogue_lens_list):
     star_pop_source = star_catalogue_source["star_pop"]
@@ -171,7 +178,6 @@ def get_tau_addition_term_catalogue_lens(star_catalogue_lens, dist_source):
     print "tau_addition_term_catalogue_lens: %s" % tau_addition_term_catalogue_lens
     return tau_addition_term_catalogue_lens
 
-
 def get_tau_addition_term_lens(star_lens, solid_angle_lens, dist_source):
     mass_lens = float(star_lens["Mass"]) * units.solMass
     dist_lens = float(star_lens["Dist"]) * units.kpc
@@ -196,22 +202,35 @@ def get_tau_addition_term_lens(star_lens, solid_angle_lens, dist_source):
 def get_inverse_weight(star_catalogue_source_list):
     weight_sum_catalogue_source = 0
     for star_catalogue_source in star_catalogue_source_list:
-        star_pop_source = star_catalogue_source["star_pop"]
-        solid_angle_source = star_catalogue_source["solid_angle"]
-        weight_sum_source = 0
-        for star_source in star_pop_source:
-            mag_V_source = float(star_source["V"])
-            # Turning debug flag on always returns a weight of 1,
-            # for testing in case something is wrong with the simulated weight
-            impact_param_weight = \
-                calculating_impact_param.simulate_impact_param_weight(mag_V_source, precision_model=PRECISION_MODEL, debug=IMPACT_PARAM_WEIGHT_DEBUG)
-            weight_sum_source += impact_param_weight
-        weight_sum_catalogue_source += weight_sum_source / solid_angle_source
+        weight_sum_catalogue_source += \
+            get_inverse_weight_addition_term_catalogue_source(star_catalogue_source)
 
-    weight_sum = 1 / weight_sum_catalogue_source
-    return weight_sum
+    inverse_weight = 1 / weight_sum_catalogue_source
+    return inverse_weight
 
-def calculate_rate_alt():
+def get_inverse_weight_addition_term_catalogue_source(star_catalogue_source):
+    star_pop_source = star_catalogue_source["star_pop"]
+    solid_angle_source = star_catalogue_source["solid_angle"]
+
+    inverse_weight_sum_source = 0
+    for star_source in star_pop_source:
+        inverse_weight_sum_source += get_inverse_weight_addition_term_source(star_source)
+
+    inverse_weight_addition_term_source = inverse_weight_sum_source / solid_angle_source
+    return inverse_weight_addition_term_source
+
+def get_inverse_weight_addition_term_source(star_source):
+    mag_V_source = float(star_source["V"])
+    # Turning debug flag on always returns a weight of 1,
+    # for testing in case something is wrong with the simulated weight
+    impact_param_weight = \
+        calculating_impact_param.simulate_impact_param_weight(mag_V_source,
+                                                              precision_model=PRECISION_MODEL,
+                                                              debug=IMPACT_PARAM_WEIGHT_DEBUG)
+    inverse_weight_addition_term_source = impact_param_weight
+    return inverse_weight_addition_term_source
+
+def calculate_tau_alt():
     star_info_dict = reading_in_star_population.read_star_pop(STAR_POP_FILEPATH, is_csv = True)
     star_pop = star_info_dict["star_pop"]
     if star_info_dict.has_key("coordinates_gal") and star_info_dict["coordinates_gal"] is not None:
@@ -255,7 +274,9 @@ def calculate_rate_alt():
                 % tau_addition_term_list.unit)
     plt.show()
 
-def calculate_rate():
+    return tau_sum
+
+def calculate_tau():
     #star_info_dict = reading_in_star_population.read_star_pop(STAR_POP_FILEPATH, is_csv = False)
     star_info_dict = reading_in_star_population.read_star_pop(STAR_POP_FILEPATH, is_csv = True)
     star_pop = star_info_dict["star_pop"]
@@ -362,6 +383,8 @@ def calculate_rate():
     if len(star_bins) > 0:
         plot_star_bins(star_bins)
 
+    return tau_sum
+
 def plot_star_bins(star_bins):
     dists = []
     bin_sizes = []
@@ -466,11 +489,14 @@ def get_angular_einstein_radius(mass_lens, dist_lens, dist_source):
 def main():
     if len(sys.argv) > 1:
         if sys.argv[1] == "alt":
-            calculate_rate_alt()
+            calculate_tau_alt()
         elif sys.argv[1] == "alt_with_impact_param":
-            calculate_rate_alt_with_impact_param()
+            example_catalogue_lists = get_example_catalogue_lists()
+            catalogue_lens_list = example_catalogue_lists["lens"]
+            catalogue_source_list = example_catalogue_lists["source"]
+            calculate_tau_alt_with_impact_param(catalogue_lens_list, catalogue_source_list)
     else:
-        calculate_rate()
+        calculate_tau()
 
 if __name__ == "__main__":
     main()

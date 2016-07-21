@@ -80,7 +80,7 @@ STAR_BIN_FILEPATH = os.path.join(STAR_BIN_DIR, STAR_BIN_FILENAME)
 
 STAR_BIN_FIELDNAMES = ["dist", "mass_density_average", "delta_dist", "tau_addition_term", "tau_value_after_addition", "size"]
 
-def calculate_rate_alt_with_impact_param():
+def calculate_optical_depth_alt_with_impact_param():
     # Set up the example source and lens catalogue lists
     # For now each catalogue lists consists of a single catalogue
     star_catalogue_example = reading_in_star_population.read_star_pop(STAR_POP_FILEPATH, is_csv = True)
@@ -166,6 +166,8 @@ def calculate_rate_alt_with_impact_param():
     plt.ylabel("term added to tau")
     plt.show()
 
+    return tau_sum
+
 def get_inverse_weight(star_catalogue_source_list):
     weight_sum_catalogue_source = 0
     for star_catalogue_source in star_catalogue_source_list:
@@ -185,7 +187,7 @@ def get_inverse_weight(star_catalogue_source_list):
     weight_sum = 1 / weight_sum_catalogue_source
     return weight_sum
 
-def calculate_rate_alt():
+def calculate_optical_depth_alt():
     star_info_dict = reading_in_star_population.read_star_pop(STAR_POP_FILEPATH, is_csv = True)
     star_pop = star_info_dict["star_pop"]
     if star_info_dict.has_key("coordinates_gal") and star_info_dict["coordinates_gal"] is not None:
@@ -229,7 +231,9 @@ def calculate_rate_alt():
                 % tau_addition_term_list.unit)
     plt.show()
 
-def calculate_rate():
+    return tau_sum
+
+def calculate_optical_depth():
     #star_info_dict = reading_in_star_population.read_star_pop(STAR_POP_FILEPATH, is_csv = False)
     star_info_dict = reading_in_star_population.read_star_pop(STAR_POP_FILEPATH, is_csv = True)
     star_pop = star_info_dict["star_pop"]
@@ -336,6 +340,8 @@ def calculate_rate():
     if len(star_bins) > 0:
         plot_star_bins(star_bins)
 
+    return tau_sum
+
 def plot_star_bins(star_bins):
     dists = []
     bin_sizes = []
@@ -440,11 +446,11 @@ def get_angular_einstein_radius(mass_lens, dist_lens, dist_source):
 def main():
     if len(sys.argv) > 1:
         if sys.argv[1] == "alt":
-            calculate_rate_alt()
+            calculate_optical_depth_alt()
         elif sys.argv[1] == "alt_with_impact_param":
-            calculate_rate_alt_with_impact_param()
+            calculate_optical_depth_alt_with_impact_param()
     else:
-        calculate_rate()
+        calculate_optical_depth()
 
 if __name__ == "__main__":
     main()
