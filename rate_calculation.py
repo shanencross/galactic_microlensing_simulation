@@ -69,6 +69,9 @@ PRECISION_MODEL = "LSST"
 
 IMPACT_PARAM_WEIGHT_DEBUG = False # Turning debug flag on always returns a weight of 1,
                                  # for testing in case something is wrong with the simulated weight
+INVERSE_WEIGHT_DEBUG = False
+
+#REMOVE_SOLID_ANGLE_SOURCE_FACTOR = False # Debug flag
 
 # Currently designed only for "small field" populations with only one grid cell
 # (a single (l,b) value with some square degree angular size)
@@ -81,8 +84,9 @@ STAR_BIN_FILEPATH = os.path.join(STAR_BIN_DIR, STAR_BIN_FILENAME)
 STAR_BIN_FIELDNAMES = ["dist", "mass_density_average", "delta_dist", "tau_addition_term", "tau_value_after_addition", "size"]
 
 def get_example_catalogue_lists():
-    # Set up the example source and lens catalogue lists
-    # For now each catalogue lists consists of a single catalogue
+    """Set up the example source and lens catalogue lists.
+    For now each catalogue lists consists of a single catalogue.
+    """
     star_catalogue_example = reading_in_star_population.read_star_pop(STAR_POP_FILEPATH, is_csv = True)
     star_catalogue_example["solid_angle"] = SOLID_ANGLE_DEFAULT
     star_catalogue_lens_list = [star_catalogue_example]
@@ -91,6 +95,29 @@ def get_example_catalogue_lists():
     star_catalogue_list_dict = {"lens": star_catalogue_lens_list, "source": star_catalogue_source_list}
 
     return star_catalogue_list_dict
+
+def get_example_catalogue_lists_2():
+    """Set up the example source and lens catalogue lists
+    For now each catalogue lists consists of a single catalogue
+    """
+    star_catalogue_example_lens = reading_in_star_population.read_star_pop(STAR_POP_FILEPATH, is_csv = True)
+    star_catalogue_example_lens["solid_angle"] = SOLID_ANGLE_DEFAULT
+    star_catalogue_lens_list = [star_catalogue_example_lens]
+
+    star_example_source = {"Dist": str(8.5), "V": str(24.5)}
+    solid_angle_example_source = 1 # This intentionally unitless because we are effectively
+                                   # Removing the solid_angle_source factor from the summation
+
+    star_catalogue_example_source = {"star_pop": [star_example_source],
+                                     "solid_angle": solid_angle_example_source}
+
+    star_catalogue_lens_list = [star_catalogue_example_lens]
+    star_catalogue_source_list = [star_catalogue_example_source]
+
+    star_catalogue_list_dict = {"lens": star_catalogue_lens_list, "source": star_catalogue_source_list}
+
+    return star_catalogue_list_dict
+
 
 def calculate_tau_alt_with_impact_param(star_catalogue_lens_list, star_catalogue_source_list):
     # Iterate over each source catalogue
@@ -105,12 +132,12 @@ def calculate_tau_alt_with_impact_param(star_catalogue_lens_list, star_catalogue
     tau_sum_times_max_impact_param_squared = tau_sum_catalogue_source * u_MAX * u_MAX
 
     # Get inverse weight, which iterates of source catalogues, and multiply tau sum by it
-    tau_inverse_weight = get_inverse_weight(star_catalogue_source_list)
-    #tau_inverse_weight = 1
+    tau_inverse_weight = get_inverse_weight(star_catalogue_source_list, debug=INVERSE_WEIGHT_DEBUG)
+    print("inverse weight: {}".format(tau_inverse_weight))
 
     # Get final tau value
     tau = tau_sum_times_max_impact_param_squared * tau_inverse_weight
-    print "tau: %s" % tau
+    print("tau: {}".format(tau))
 
     """
     tau_addition_term_list = units.Quantity(tau_addition_term_list).value
@@ -132,7 +159,7 @@ def get_tau_addition_term_catalogue_source(star_catalogue_source, star_catalogue
                           for star_source in star_pop_source])
 
     tau_addition_term_catalogue_source = tau_sum_source / solid_angle_source
-    #print "tau_addition_term_catalogue_source: %s" % tau_addition_term_catalogue_source
+    print "tau_addition_term_catalogue_source: %s" % tau_addition_term_catalogue_source
     return tau_addition_term_catalogue_source
 
 def get_tau_addition_term_source(star_source, star_catalogue_lens_list):
@@ -145,9 +172,10 @@ def get_tau_addition_term_source(star_source, star_catalogue_lens_list):
             precision_model=PRECISION_MODEL, debug=IMPACT_PARAM_WEIGHT_DEBUG)
 
     if impact_param_weight != 1:
-        print "Impact parameter weight != 1"
-        print "Impact parameter weight: %s" % impact_param_weight
-        print "mag: %s" % mag_V_source
+        pass
+        #print "Impact parameter weight != 1"
+        #print "Impact parameter weight: %s" % impact_param_weight
+        #print "mag: %s" % mag_V_source
     #print impact_param_weight
 
     # Iterate over each lens catalogue
@@ -157,7 +185,7 @@ def get_tau_addition_term_source(star_source, star_catalogue_lens_list):
     #print("function result: {}".format(calculating_impact_param.simulate_impact_param_weight(mag_V_source, precision_model=PRECISION_MODEL)))
 
     tau_addition_term_source = impact_param_weight * tau_sum_catalogue_lens
-    #print "tau_addition_term_source: %s" % tau_addition_term_source
+    print "tau_addition_term_source: %s" % tau_addition_term_source
     return tau_addition_term_source
 
 def get_tau_addition_term_catalogue_lens(star_catalogue_lens, dist_source):
@@ -169,14 +197,14 @@ def get_tau_addition_term_catalogue_lens(star_catalogue_lens, dist_source):
                         for star_lens in star_pop_lens])
 
     tau_addition_term_catalogue_lens = tau_sum_lens
-    #print "tau_addition_term_catalogue_lens: %s" % tau_addition_term_catalogue_lens
+    print "tau_addition_term_catalogue_lens: %s" % tau_addition_term_catalogue_lens
     return tau_addition_term_catalogue_lens
 
 def get_tau_addition_term_lens(star_lens, solid_angle_lens, dist_source):
     mass_lens = float(star_lens["Mass"]) * units.solMass
     dist_lens = float(star_lens["Dist"]) * units.kpc
-    #print "dist_lens: %s        dist_source: %s" % (dist_lens, dist_source)
-    #print "mass_lens: %s" % mass_lens
+    print "dist_lens: %s        dist_source: %s" % (dist_lens, dist_source)
+    print "mass_lens: %s" % mass_lens
 
     # Get tau addition term if lens is closer than source,
     # using source properties and lens catalogue's solid angle
@@ -184,21 +212,24 @@ def get_tau_addition_term_lens(star_lens, solid_angle_lens, dist_source):
         angular_einstein_radius = \
             get_angular_einstein_radius(mass_lens, dist_lens, dist_source)
         tau_addition_term_lens = np.pi * angular_einstein_radius*angular_einstein_radius / solid_angle_lens
-        #print "angular Einstein radius: %s" % angular_einstein_radius
+        print "angular Einstein radius: %s" % angular_einstein_radius
     else:
         tau_addition_term_lens = 0
-        #print "no Einstein radius"
+        print "no Einstein radius"
         #tau_addition_term_list.append(tau_addition_term_lens.decompose())
 
-    #print "tau_addition_term_lens: %s" % tau_addition_term_lens
+    print "tau_addition_term_lens: %s" % tau_addition_term_lens
     return tau_addition_term_lens
 
 
-def get_inverse_weight(star_catalogue_source_list):
+def get_inverse_weight(star_catalogue_source_list, debug=False):
+    if debug:
+        inverse_weight = 1
+    else:
+        weight_sum_catalogue_source = sum([get_inverse_weight_addition_term_catalogue_source(star_catalogue_source)
+                                           for star_catalogue_source in star_catalogue_source_list])
+        inverse_weight = 1 / weight_sum_catalogue_source
 
-    weight_sum_catalogue_source = sum([get_inverse_weight_addition_term_catalogue_source(star_catalogue_source)
-                                       for star_catalogue_source in star_catalogue_source_list])
-    inverse_weight = 1 / weight_sum_catalogue_source
     return inverse_weight
 
 def get_inverse_weight_addition_term_catalogue_source(star_catalogue_source):
@@ -255,15 +286,13 @@ def calculate_tau_alt():
     tau_addition_term_list = units.Quantity(tau_addition_term_list)
 
     plt.plot(dist_lens_list, tau_sum_list, "ro")
-    plt.xlabel("lens distance (%s)" % dist_lens_list.unit)
-    plt.ylabel("tau sum value after addition of term at this lens distance (%s)"
-                % tau_sum_list.unit)
+    plt.xlabel("lens distance ({})".format(dist_lens_list.unit))
+    plt.ylabel("tau sum value after addition of term at this lens distance ({})".format(tau_sum_list.unit))
     plt.show()
 
     plt.plot(dist_lens_list, tau_addition_term_list, "ro")
-    plt.xlabel("lens distance (%s)" % dist_lens_list.unit)
-    plt.ylabel("term added to tau value at this lens distance (%s)"
-                % tau_addition_term_list.unit)
+    plt.xlabel("lens distance ({})".format(dist_lens_list.unit))
+    plt.ylabel("term added to tau value at this lens distance ({})".format(tau_addition_term_list.unit))
     plt.show()
 
     return tau_sum
@@ -487,6 +516,16 @@ def run_test(args):
             catalogue_lens_list = example_catalogue_lists["lens"]
             catalogue_source_list = example_catalogue_lists["source"]
             calculate_tau_alt_with_impact_param(catalogue_lens_list, catalogue_source_list)
+        elif args[0] == "alt_equivalency_test":
+            if IMPACT_PARAM_WEIGHT_DEBUG and INVERSE_WEIGHT_DEBUG:
+                example_catalogue_lists = get_example_catalogue_lists_2()
+                catalogue_lens_list = example_catalogue_lists["lens"]
+                catalogue_source_list = example_catalogue_lists["source"]
+                calculate_tau_alt_with_impact_param(catalogue_lens_list, catalogue_source_list)
+            else:
+                print("Gobal constants IMPACT_PARAM_WEIGHT_DEBUG and INVERSE_WEIGHT_DEBUG must be True")
+                print("IMPACT_PARAM_WEIGHT_DEBUG: {!s:<20} INVERSE_WEIGHT_DEBUG: {!s})".format(IMPACT_PARAM_WEIGHT_DEBUG,
+                                                                                     INVERSE_WEIGHT_DEBUG))
     else:
         calculate_tau()
 

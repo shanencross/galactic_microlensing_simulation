@@ -18,7 +18,8 @@ y_intercept = None
 
 def simulate_mag_error(mag, precision_model=PRECISION_MODEL, debug=False, error_debug=False):
     """Method to approximate the photometric precision possible
-    for a given telescope"""
+    for a given telescope.
+    """
 
     # Select simulation parameters depending on the class
     # of telescope selected:
@@ -221,8 +222,7 @@ def generate_plots(x_label, y_label, x_list, y_list, style_string):
     plt.show()
 
 def simulate_mag_error_LSST_alt(mag):
-    """
-    Ok, so:
+    """OK, so:
 
     if mag == 16:
         mag_err = 4 millimag (0.004 mag)
@@ -310,7 +310,7 @@ def set_slope_and_y_intercept():
     y_intercept = get_y_intercept(point_A, slope)
     #y_intercept_alt = get_y_intercept(point_B, slope)
 
-    print("slope: {:<20} y_intercept: {}".format(slope, y_intercept))
+    #print("slope: {:<20} y_intercept: {}".format(slope, y_intercept))
     #print "y_intercept_alt: %s" % y_intercept_alt
 
 def get_slope(point_A, point_B):
