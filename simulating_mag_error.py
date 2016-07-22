@@ -259,7 +259,7 @@ def simulate_mag_error_LSST_alt(mag):
         mag_error = 0.005
     else:
         if slope is None or y_intercept is None:
-            set_slope_and_y_intercept(mag)
+            set_slope_and_y_intercept()
         if slope is None or y_intercept is None:
             print "still None"
             print "slope: %s" % slope
@@ -271,19 +271,60 @@ def simulate_mag_error_LSST_alt(mag):
     error_dict = {"mag_err": mag_error}
     return error_dict
 
-def set_slope_and_y_intercept(mag):
+def set_slope_and_y_intercept():
     global slope
     global y_intercept
 
-    point_A = {"x": 20, "y": np.log10(0.005)}
-    point_B = {"x": 24.5, "y": np.log10(0.108)}
+    """
+    Relevant iPython logs:
+    In [113]: A
+    Out[113]: (20, 5)
 
-    slope = (point_B["y"] - point_A["y"]) / (point_B["x"] - point_A["x"])
-    y_intercept = point_B["y"] - ( slope * point_B["x"] )
+    In [118]: A_alt
+    Out[118]: (21, 10)
+
+    In [114]: B
+    Out[114]: (24.5, 162)
+
+    In [156]: B_alt
+    Out[156]: (24, 109)
+    """
+
+    # old; these are not correct;
+    # confused log scale for linear scale when estimating B's y coordinate
+    # point_A = (20, np.log10(0.005))
+    # point_B = (24.5, np.log10(0.108))
+
+    # This gives nearly identical results to this below; either is fine
+    # point_A = (20, np.log10(0.005))
+    # point_B = (24.5, np.log10(0.162))
+
+    point_A = (20, np.log10(0.005))
+    point_B = (24, np.log10(0.109))
+
+    #slope = (point_B["y"] - point_A["y"]) / (point_B["x"] - point_A["x"])
+    #y_intercept = point_B["y"] - ( slope * point_B["x"] )
     #y_intercept_alt = point_A["y"] - ( slope * point_A["x"])
 
-    print "slope: %s        y_intercept: %s" % (slope, y_intercept)
+    slope = get_slope(point_A, point_B)
+    y_intercept = get_y_intercept(point_A, slope)
+    #y_intercept_alt = get_y_intercept(point_B, slope)
+
+    print("slope: {:<20} y_intercept: {}".format(slope, y_intercept))
     #print "y_intercept_alt: %s" % y_intercept_alt
+
+def get_slope(point_A, point_B):
+    x_A, y_A = point_A
+    x_B, y_B = point_B
+    # y_B - y_A = slope * (x_B - x_A)
+    slope = (y_B - y_A) / float(x_B - x_A)
+    return slope
+
+def get_y_intercept(point, slope):
+    x, y = point
+    # y = slope * x + y_intercept
+    y_intercept = y - (slope * x)
+    return y_intercept
 
 def main():
     print "Precision model: %s" % PRECISION_MODEL

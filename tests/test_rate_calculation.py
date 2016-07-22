@@ -3,7 +3,7 @@ import astropy.units as units
 
 import rate_calculation
 
-class TestCase_rate_calculation(unittest.TestCase):
+class Test_rate_calculation(unittest.TestCase):
     def setUp(self):
         pass
 
