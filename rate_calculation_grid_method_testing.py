@@ -67,7 +67,7 @@ u_MAX = 1 # default value for u_max, the maximum impact parameter for which we c
 
 PRECISION_MODEL = "LSST"
 
-IMPACT_PARAM_WEIGHT_DEBUG = True # Turning debug flag on always returns a weight of 1,
+IMPACT_PARAM_WEIGHT_DEBUG = False # Turning debug flag on always returns a weight of 1,
                                  # for testing in case something is wrong with the simulated weight
 
 # Currently designed only for "small field" populations with only one grid cell
@@ -122,33 +122,34 @@ def calculate_optical_depth_alt_with_impact_param():
                 for star_lens in star_pop_lens:
                     mass_lens = float(star_lens["Mass"]) * units.solMass
                     dist_lens = float(star_lens["Dist"]) * units.kpc
-                    print "dist_lens: %s        dist_source: %s" % (dist_lens, dist_source)
-                    print "mass_lens: %s" % mass_lens
+                    #print "dist_lens: %s        dist_source: %s" % (dist_lens, dist_source)
+                    #print "mass_lens: %s" % mass_lens
                     # Get tau addition term if lens is closer than source,
                     # using source properties and lens catalogue's solid angle
                     if dist_lens < dist_source:
                         angular_einstein_radius = \
                             get_angular_einstein_radius(mass_lens, dist_lens, dist_source)
-                        print "angular Einstein radius: %s" % angular_einstein_radius
+                        #print "angular Einstein radius: %s" % angular_einstein_radius
                         tau_addition_term_lens = np.pi * angular_einstein_radius*angular_einstein_radius / solid_angle_lens
                         tau_sum_lens += tau_addition_term_lens
                         tau_addition_term_list.append(tau_addition_term_lens.decompose())
-                        print "tau_addition_term_lens: %s" % tau_addition_term_lens
+                        #print "tau_addition_term_lens: %s" % tau_addition_term_lens
                     else:
-                        print "no Einstein radius"
-                        print "tau_addition_term_lens: 0"
+                        pass
+                        #print "no Einstein radius"
+                        #print "tau_addition_term_lens: 0"
 
                 # Add sum over lenses to sum over lens catalogues
                 tau_sum_catalogue_lens += tau_sum_lens
-                print "tau_addition_term_catalogue_lens: %s" % tau_sum_lens
+                #print "tau_addition_term_catalogue_lens: %s" % tau_sum_lens
             # Multiply sum over lens catalogues by impact param weight (U),
             # and add to sum over sources
             tau_sum_source += tau_sum_catalogue_lens * impact_param_weight
-            print "tau_addition_term_source: %s" % (tau_sum_catalogue_lens * impact_param_weight)
+            #print "tau_addition_term_source: %s" % (tau_sum_catalogue_lens * impact_param_weight)
         # Divide the sum over sources by the source catalogue's solid angle,
         # and add to sum over souce catalogues
         tau_sum_catalogue_source += tau_sum_source / solid_angle_source
-        print "tau_addition_term_catalogue_source: %s" % (tau_sum_source / solid_angle_source)
+        #print "tau_addition_term_catalogue_source: %s" % (tau_sum_source / solid_angle_source)
 
     # Multiply sum over source catalogues by square of the maximum impact parameter for a microlensing event
     # and store as tau sum
