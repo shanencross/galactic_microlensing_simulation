@@ -60,16 +60,16 @@ CALCULATE_SOLID_ANGLE = False # Determines whether solid angle is calculated fro
                               # or simply given (used for "small field" models)
 SOLID_ANGLE_DEFAULT = 1 * units.deg * units.deg # Default value for solid angle of calculate flag is off
 
-DIST_SOURCE_DEFAULT = 50 * units.kpc # Default source distance set to 8.5 kiloparsecs for now, which is our seeing limit when observing
+DIST_SOURCE_DEFAULT = 8.5 * units.kpc # Default source distance set to 8.5 kiloparsecs for now, which is our seeing limit when observing
                                       # the bulge directly. Eventually this should vary with (l, b)
 
 u_MAX = 1 # default value for u_max, the maximum impact parameter for which we consider a microlensing event to have ocurred
 
 PRECISION_MODEL = "LSST"
 
-IMPACT_PARAM_WEIGHT_DEBUG = False # Turning debug flag on always returns a weight of 1,
+IMPACT_PARAM_WEIGHT_DEBUG = True # Turning debug flag on always returns a weight of 1,
                                  # for testing in case something is wrong with the simulated weight
-INVERSE_WEIGHT_DEBUG = False
+INVERSE_WEIGHT_DEBUG = True
 
 #REMOVE_SOLID_ANGLE_SOURCE_FACTOR = False # Debug flag
 
@@ -102,9 +102,10 @@ def get_example_catalogue_lists_2():
     """
     star_catalogue_example_lens = reading_in_star_population.read_star_pop(STAR_POP_FILEPATH, is_csv = True)
     star_catalogue_example_lens["solid_angle"] = SOLID_ANGLE_DEFAULT
+    star_catalogue_example_lens["star_pop"] = star_catalogue_example_lens["star_pop"][:3]
     star_catalogue_lens_list = [star_catalogue_example_lens]
 
-    star_example_source = {"Dist": str(8.5), "V": str(24.5)}
+    star_example_source = {"Dist": str(DIST_SOURCE_DEFAULT.value), "V": str(24.5)}
     solid_angle_example_source = 1 # This intentionally unitless because we are effectively
                                    # Removing the solid_angle_source factor from the summation
 
@@ -191,6 +192,7 @@ def get_tau_addition_term_source(star_source, star_catalogue_lens_list):
 def get_tau_addition_term_catalogue_lens(star_catalogue_lens, dist_source):
     star_pop_lens = star_catalogue_lens["star_pop"]
     solid_angle_lens = star_catalogue_lens["solid_angle"]
+    #print("Solid angle lens: {}".format(solid_angle_lens))
 
     # Iterate over each lens in the catalogue
     tau_sum_lens = sum([get_tau_addition_term_lens(star_lens, solid_angle_lens, dist_source)
@@ -211,7 +213,8 @@ def get_tau_addition_term_lens(star_lens, solid_angle_lens, dist_source):
     if dist_lens < dist_source:
         angular_einstein_radius = \
             get_angular_einstein_radius(mass_lens, dist_lens, dist_source)
-        tau_addition_term_lens = np.pi * angular_einstein_radius*angular_einstein_radius / solid_angle_lens
+        tau_addition_term_lens = \
+            np.pi * angular_einstein_radius*angular_einstein_radius / solid_angle_lens
         print "angular Einstein radius: %s" % angular_einstein_radius
     else:
         tau_addition_term_lens = 0
@@ -219,6 +222,7 @@ def get_tau_addition_term_lens(star_lens, solid_angle_lens, dist_source):
         #tau_addition_term_list.append(tau_addition_term_lens.decompose())
 
     print "tau_addition_term_lens: %s" % tau_addition_term_lens
+    print("tau_addition_term_lens unit: {}".format(tau_addition_term_lens.unit))
     return tau_addition_term_lens
 
 
@@ -255,7 +259,7 @@ def get_inverse_weight_addition_term_source(star_source):
 
 def calculate_tau_alt():
     star_info_dict = reading_in_star_population.read_star_pop(STAR_POP_FILEPATH, is_csv = True)
-    star_pop = star_info_dict["star_pop"]
+    star_pop = star_info_dict["star_pop"][:3]
     if star_info_dict.has_key("coordinates_gal") and star_info_dict["coordinates_gal"] is not None:
         coord_gal = float(star_info_dict["coordinates_gal"]) * units.deg
     else:
@@ -279,11 +283,13 @@ def calculate_tau_alt():
         tau_sum_list.append(tau_sum.copy())
         tau_addition_term_list.append(tau_addition_term.copy())
 
-    print tau_sum
+    print(tau_sum)
 
     dist_lens_list = units.Quantity(dist_lens_list)
     tau_sum_list = units.Quantity(tau_sum_list)
     tau_addition_term_list = units.Quantity(tau_addition_term_list)
+
+    print(tau_addition_term_list)
 
     plt.plot(dist_lens_list, tau_sum_list, "ro")
     plt.xlabel("lens distance ({})".format(dist_lens_list.unit))
