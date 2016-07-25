@@ -1,7 +1,6 @@
 """
 make_csv.py
 """
-
 import sys
 import os
 import csv
@@ -11,7 +10,7 @@ import pandas
 import reading_in_star_population
 
 STAR_POP_STARTING_FIELDNAME = "Dist"
-OUTPUT_DIR = "./star_population_tables_csv"
+OUTPUT_DIR = "./star_population_tables_csv_temp"
 if not os.path.exists(OUTPUT_DIR):
     os.makedirs(OUTPUT_DIR)
 
@@ -31,7 +30,7 @@ def make_csv(filepath):
             writer.writeheader()
             for star_dict in star_pop:
                 writer.writerow(star_dict)
-        
+
     else:
         print "File does not exist at path %s" % filepath
 
@@ -43,7 +42,7 @@ def make_csv_sample(filepath, sample_fraction = 0.01):
             star_pop = []
             for line in star_pop_file:
                 split_line = line.split()
-           
+
                 if not reading_star_table and len(split_line) > 0 and split_line[0] == STAR_POP_STARTING_FIELDNAME:
                     star_pop_fieldnames = split_line
                     reading_star_table = True
@@ -94,7 +93,7 @@ def make_csv_sample_alt(filepath, sample_fraction = 0.01):
                 writer.writerow(star_dict)
     else:
         print "File does not exist at path %s" % filepath
-                
+
 def main():
     if len(sys.argv) > 2:
         input_filepath = sys.argv[1]

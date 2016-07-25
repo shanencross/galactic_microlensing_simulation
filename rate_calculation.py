@@ -10,13 +10,14 @@ from astropy.constants import G, c
 import csv
 import matplotlib.pyplot as plt
 import logging
+from collections import OrderedDict
 
 import logger_setup
 import reading_in_star_population
 import plotting
 import calculating_impact_param
 
-LOGGER_ON = False # Enable or disable logger. Affects execution speed
+LOGGER_ON = True # Enable or disable logger. Affects execution speed
 DEBUGGING_MODE = False # Turn this flag on if modifying and testing code - turn it off when actively being used
 
 if LOGGER_ON:
@@ -35,7 +36,7 @@ if LOGGER_ON:
     if DEBUGGING_MODE:
 	    logger = logger_setup.setup(__name__, LOG_DIR, LOG_NAME, LOG_DATE_TIME_FORMAT, console_output_on=True, console_output_level = "DEBUG")
     else:
-	    logger = logger_setup.setup(__name__, LOG_DIR, LOG_NAME, LOG_DATE_TIME_FORMAT, console_output_on=False, console_output_level = "DEBUG")
+	    logger = logger_setup.setup(__name__, LOG_DIR, LOG_NAME, LOG_DATE_TIME_FORMAT, console_output_on=True, console_output_level = "INFO")
 else:
     # If logger is to be disabled, create dummy logger and disable it
     logger = logging.getLogger()
@@ -43,6 +44,8 @@ else:
 
 #STAR_POP_DIR = os.path.join(sys.path[0], "star_population_tables")
 STAR_POP_DIR = os.path.join(sys.path[0], "star_population_tables_csv")
+#STAR_POP_DIR = os.path.join(sys.path[0], "star_population_tables_csv_temp")
+
 #STAR_POP_FILENAME = "1466028123.767236.resu"
 #STAR_POP_FILENAME = "1466028463.709599.resu"
 #STAR_POP_FILENAME = "1466032757.632040.resu"
@@ -51,7 +54,7 @@ STAR_POP_DIR = os.path.join(sys.path[0], "star_population_tables_csv")
 #STAR_POP_FILENAME = "1467072296.449283.resu"
 #STAR_POP_FILENAME = "1466633557.703409.csv"
 #STAR_POP_FILENAME = "1467072296.449283_sample.csv"
-#STAR_POP_FILENAME = "1467072296.449283_sample_0.0001.csv"
+#STAR_POP_FILENAME = "1467072296.449283_sample_0.001.csv"
 STAR_POP_FILENAME = "1467072296.449283_sample_1e-05.csv"
 
 STAR_POP_FILEPATH = os.path.join(STAR_POP_DIR, STAR_POP_FILENAME)
@@ -67,9 +70,9 @@ u_MAX = 1 # default value for u_max, the maximum impact parameter for which we c
 
 PRECISION_MODEL = "LSST"
 
-IMPACT_PARAM_WEIGHT_DEBUG = True # Turning debug flag on always returns a weight of 1,
+IMPACT_PARAM_WEIGHT_DEBUG = False # Turning debug flag on always returns a weight of 1,
                                  # for testing in case something is wrong with the simulated weight
-INVERSE_WEIGHT_DEBUG = True
+INVERSE_WEIGHT_DEBUG = False # Same as impact param weight debug flag but for inverse weight
 
 #REMOVE_SOLID_ANGLE_SOURCE_FACTOR = False # Debug flag
 
@@ -102,7 +105,7 @@ def get_example_catalogue_lists_2():
     """
     star_catalogue_example_lens = reading_in_star_population.read_star_pop(STAR_POP_FILEPATH, is_csv = True)
     star_catalogue_example_lens["solid_angle"] = SOLID_ANGLE_DEFAULT
-    star_catalogue_example_lens["star_pop"] = star_catalogue_example_lens["star_pop"][:3]
+    star_catalogue_example_lens["star_pop"] = star_catalogue_example_lens["star_pop"]
     star_catalogue_lens_list = [star_catalogue_example_lens]
 
     star_example_source = {"Dist": str(DIST_SOURCE_DEFAULT.value), "V": str(24.5)}
@@ -119,6 +122,22 @@ def get_example_catalogue_lists_2():
 
     return star_catalogue_list_dict
 
+def calculate_tau_alt_equivalency_test():
+    if IMPACT_PARAM_WEIGHT_DEBUG and INVERSE_WEIGHT_DEBUG:
+        example_catalogue_lists = get_example_catalogue_lists_2()
+        catalogue_lens_list = example_catalogue_lists["lens"]
+        catalogue_source_list = example_catalogue_lists["source"]
+        calculate_tau_alt_with_impact_param(catalogue_lens_list, catalogue_source_list)
+    else:
+        logger.debug("Gobal constants IMPACT_PARAM_WEIGHT_DEBUG and INVERSE_WEIGHT_DEBUG must be True")
+        logger.debug("IMPACT_PARAM_WEIGHT_DEBUG: {!s:<20} INVERSE_WEIGHT_DEBUG: {!s})".format(IMPACT_PARAM_WEIGHT_DEBUG,
+                                                                                              INVERSE_WEIGHT_DEBUG))
+
+def calculate_tau_alt_with_impact_param_test():
+    example_catalogue_lists = get_example_catalogue_lists()
+    catalogue_lens_list = example_catalogue_lists["lens"]
+    catalogue_source_list = example_catalogue_lists["source"]
+    calculate_tau_alt_with_impact_param(catalogue_lens_list, catalogue_source_list)
 
 def calculate_tau_alt_with_impact_param(star_catalogue_lens_list, star_catalogue_source_list):
     # Iterate over each source catalogue
@@ -134,15 +153,15 @@ def calculate_tau_alt_with_impact_param(star_catalogue_lens_list, star_catalogue
 
     # Get inverse weight, which iterates of source catalogues, and multiply tau sum by it
     tau_inverse_weight = get_inverse_weight(star_catalogue_source_list, debug=INVERSE_WEIGHT_DEBUG)
-    print("inverse weight: {}".format(tau_inverse_weight))
+    logger.info("inverse weight: {}".format(tau_inverse_weight))
 
     # Get final tau value
     tau = tau_sum_times_max_impact_param_squared * tau_inverse_weight
-    print("tau: {}".format(tau))
+    logger.info("tau: {}".format(tau))
 
     """
     tau_addition_term_list = units.Quantity(tau_addition_term_list).value
-    #print tau_addition_term_list
+    #logger.debug(tau_addition_term_list
     plt.plot(tau_addition_term_list, "ro")
     plt.xlabel("index")
     plt.ylabel("term added to tau")
@@ -160,7 +179,7 @@ def get_tau_addition_term_catalogue_source(star_catalogue_source, star_catalogue
                           for star_source in star_pop_source])
 
     tau_addition_term_catalogue_source = tau_sum_source / solid_angle_source
-    print "tau_addition_term_catalogue_source: %s" % tau_addition_term_catalogue_source
+    logger.debug("tau_addition_term_catalogue_source: %s" % tau_addition_term_catalogue_source)
     return tau_addition_term_catalogue_source
 
 def get_tau_addition_term_source(star_source, star_catalogue_lens_list):
@@ -174,39 +193,39 @@ def get_tau_addition_term_source(star_source, star_catalogue_lens_list):
 
     if impact_param_weight != 1:
         pass
-        #print "Impact parameter weight != 1"
-        #print "Impact parameter weight: %s" % impact_param_weight
-        #print "mag: %s" % mag_V_source
-    #print impact_param_weight
+        #logger.debug("Impact parameter weight != 1")
+        #logger.debug("Impact parameter weight: %s" % impact_param_weight)
+        #logger.debug("mag: %s" % mag_V_source)
+    #logger.debug(impact_param_weight)
 
     # Iterate over each lens catalogue
     tau_sum_catalogue_lens = sum([get_tau_addition_term_catalogue_lens(star_catalogue_lens, dist_source)
                                   for star_catalogue_lens in star_catalogue_lens_list])
-    #print("mag: {:<20} impact_param_weight: {}".format(mag_V_source, impact_param_weight))
-    #print("function result: {}".format(calculating_impact_param.simulate_impact_param_weight(mag_V_source, precision_model=PRECISION_MODEL)))
+    #logger.debug("mag: {:<20} impact_param_weight: {}".format(mag_V_source, impact_param_weight))
+    #logger.debug("function result: {}".format(calculating_impact_param.simulate_impact_param_weight(mag_V_source, precision_model=PRECISION_MODEL)))
 
     tau_addition_term_source = impact_param_weight * tau_sum_catalogue_lens
-    print "tau_addition_term_source: %s" % tau_addition_term_source
+    logger.debug("tau_addition_term_source: %s" % tau_addition_term_source)
     return tau_addition_term_source
 
 def get_tau_addition_term_catalogue_lens(star_catalogue_lens, dist_source):
     star_pop_lens = star_catalogue_lens["star_pop"]
     solid_angle_lens = star_catalogue_lens["solid_angle"]
-    #print("Solid angle lens: {}".format(solid_angle_lens))
+    #logger.debug("Solid angle lens: {}".format(solid_angle_lens))
 
     # Iterate over each lens in the catalogue
     tau_sum_lens = sum([get_tau_addition_term_lens(star_lens, solid_angle_lens, dist_source)
                         for star_lens in star_pop_lens])
 
     tau_addition_term_catalogue_lens = tau_sum_lens
-    print "tau_addition_term_catalogue_lens: %s" % tau_addition_term_catalogue_lens
+    logger.debug("tau_addition_term_catalogue_lens: %s" % tau_addition_term_catalogue_lens)
     return tau_addition_term_catalogue_lens
 
 def get_tau_addition_term_lens(star_lens, solid_angle_lens, dist_source):
     mass_lens = float(star_lens["Mass"]) * units.solMass
     dist_lens = float(star_lens["Dist"]) * units.kpc
-    print "dist_lens: %s        dist_source: %s" % (dist_lens, dist_source)
-    print "mass_lens: %s" % mass_lens
+    logger.debug("dist_lens: %s        dist_source: %s" % (dist_lens, dist_source))
+    logger.debug("mass_lens: %s" % mass_lens)
 
     # Get tau addition term if lens is closer than source,
     # using source properties and lens catalogue's solid angle
@@ -215,14 +234,14 @@ def get_tau_addition_term_lens(star_lens, solid_angle_lens, dist_source):
             get_angular_einstein_radius(mass_lens, dist_lens, dist_source)
         tau_addition_term_lens = \
             np.pi * angular_einstein_radius*angular_einstein_radius / solid_angle_lens
-        print "angular Einstein radius: %s" % angular_einstein_radius
+        logger.debug("angular Einstein radius: %s" % angular_einstein_radius)
     else:
         tau_addition_term_lens = 0
-        print "no Einstein radius"
+        logger.debug("no Einstein radius")
         #tau_addition_term_list.append(tau_addition_term_lens.decompose())
 
-    print "tau_addition_term_lens: %s" % tau_addition_term_lens
-    print("tau_addition_term_lens unit: {}".format(tau_addition_term_lens.unit))
+    logger.debug("tau_addition_term_lens: %s" % tau_addition_term_lens)
+    #logger.debug("tau_addition_term_lens unit: {}".format(tau_addition_term_lens.unit))
     return tau_addition_term_lens
 
 
@@ -257,13 +276,23 @@ def get_inverse_weight_addition_term_source(star_source):
     inverse_weight_addition_term_source = impact_param_weight
     return inverse_weight_addition_term_source
 
-def calculate_tau_alt():
+def calculate_tau_alt_test():
     star_info_dict = reading_in_star_population.read_star_pop(STAR_POP_FILEPATH, is_csv = True)
-    star_pop = star_info_dict["star_pop"][:3]
+    tau_info_dict = calculate_tau_alt(star_info_dict)
+    tau_sum = tau_info_dict["tau"]
+    logger.info("tau_sum: {}".format(tau_sum))
+    plot_tau_info_alt(tau_info_dict)
+
+def calculate_tau_alt(star_info_dict):
+    star_pop = star_info_dict["star_pop"]
     if star_info_dict.has_key("coordinates_gal") and star_info_dict["coordinates_gal"] is not None:
-        coord_gal = float(star_info_dict["coordinates_gal"]) * units.deg
+        coord_gal = star_info_dict["coordinates_gal"] * units.deg
     else:
         coord_gal = None
+
+    if not star_pop:
+        logger.debug("Star population list is empty")
+        return
 
     tau_sum = 0
     dist_source = get_dist_source(coord_gal)
@@ -271,37 +300,93 @@ def calculate_tau_alt():
     tau_sum_list = []
     tau_addition_term_list = []
     for star in star_pop:
-        dist_lens = float(star["Dist"]) * units.kpc
-        mass = float(star["Mass"]) * units.solMass
-        dist_rel = 1 / ( (1/dist_lens) - (1/dist_source) )
-        solid_angle_dimensionless = SOLID_ANGLE_DEFAULT.to(units.dimensionless_unscaled, equivalencies=units.dimensionless_angles())
-        tau_addition_term = ( 4*np.pi*G*mass/c**2 / dist_rel ) / solid_angle_dimensionless
-        tau_addition_term = tau_addition_term.decompose()
+        #dist_lens = float(star["Dist"]) * units.kpc
+        #mass = float(star["Mass"]) * units.solMass
+        #dist_rel = 1 / ( (1/dist_lens) - (1/dist_source) )
+        #solid_angle_dimensionless = SOLID_ANGLE_DEFAULT.to(units.dimensionless_unscaled, equivalencies=units.dimensionless_angles())
+        #tau_addition_term = ( 4*np.pi*G*mass/c**2 / dist_rel ) / solid_angle_dimensionless
+        #tau_addition_term = tau_addition_term.decompose()
+        solid_angle_lens = SOLID_ANGLE_DEFAULT
+
+        tau_addition_term = get_tau_addition_term_lens(star, solid_angle_lens, dist_source)
         tau_sum += tau_addition_term
 
-        dist_lens_list.append(dist_lens.copy())
+        dist_lens = float(star["Dist"]) * units.kpc
+        dist_lens_list.append(dist_lens)
         tau_sum_list.append(tau_sum.copy())
         tau_addition_term_list.append(tau_addition_term.copy())
-
-    print(tau_sum)
 
     dist_lens_list = units.Quantity(dist_lens_list)
     tau_sum_list = units.Quantity(tau_sum_list)
     tau_addition_term_list = units.Quantity(tau_addition_term_list)
 
-    print(tau_addition_term_list)
+    logger.debug("dist_lens_list: %s" % dist_lens_list)
+    logger.debug("tau_sum_list: {}".format(tau_sum_list))
+    logger.debug("tau_addition_term_list: %s" % tau_addition_term_list)
+
+    tau_info_dict = {"tau": tau_sum, "dist_lens_list": dist_lens_list, "tau_sum_list": tau_sum_list,
+                     "tau_addition_term_list": tau_addition_term_list}
+
+    return tau_info_dict
+
+def plot_tau_info_alt(tau_info_dict):
+    dist_lens_list = tau_info_dict["dist_lens_list"]
+    tau_sum = tau_info_dict["tau"]
+    tau_sum_list = tau_info_dict["tau_sum_list"]
+    tau_addition_term_list = tau_info_dict["tau_addition_term_list"]
+
+    dist_lens_list_unique = list(OrderedDict.fromkeys(dist_lens_list))
+
+    unique_i = 0
+    unique_start_index = 0
+    tau_addition_term_sum_list = []
+    tau_sum_at_distance_list = []
+    for i in xrange(len(dist_lens_list) + 1):
+        if i >= len(dist_lens_list) or (i < len(dist_lens_list)
+                                        and dist_lens_list[i] != dist_lens_list_unique[unique_i]):
+            tau_addition_term_sum = sum(tau_addition_term_list[unique_start_index:i])
+            tau_addition_term_sum_list.append(tau_addition_term_sum)
+
+            logger.debug("Correct:", dist_lens_list[unique_start_index:i])
+
+            tau_sum_at_distance = max(tau_sum_list[unique_start_index:i])
+            tau_sum_at_distance_list.append(tau_sum_at_distance)
+
+            if len(dist_lens_list) > i+1:
+                logger.debug("Too long: %s" % dist_lens_list[unique_start_index:i+1])
+            unique_i += 1
+            unique_start_index = i
+
+    dist_lens_list_unique = units.Quantity(dist_lens_list_unique)
+    tau_addition_term_sum_list = units.Quantity(tau_addition_term_sum_list)
+    tau_sum_at_distance_list = units.Quantity(tau_sum_at_distance_list)
+
+    logger.debug("dist_lens_list_unique:\n%s" % dist_lens_list_unique)
+    logger.debug("length: %s" % len(dist_lens_list_unique))
+    logger.debug("tau_addition_term_sum_list:\n%s" % tau_addition_term_sum_list)
+    logger.debug("length: %s" % len(tau_addition_term_sum_list))
+    logger.debug("tau_sum_at_distance_list:\n%s" % tau_sum_at_distance_list)
+    logger.debug("length: %s" % len(tau_sum_at_distance_list))
 
     plt.plot(dist_lens_list, tau_sum_list, "ro")
     plt.xlabel("lens distance ({})".format(dist_lens_list.unit))
     plt.ylabel("tau sum value after addition of term at this lens distance ({})".format(tau_sum_list.unit))
     plt.show()
 
-    plt.plot(dist_lens_list, tau_addition_term_list, "ro")
+    plt.plot(dist_lens_list, tau_addition_term_list, "bo")
     plt.xlabel("lens distance ({})".format(dist_lens_list.unit))
     plt.ylabel("term added to tau value at this lens distance ({})".format(tau_addition_term_list.unit))
     plt.show()
 
-    return tau_sum
+    plt.plot(dist_lens_list_unique.value, tau_addition_term_sum_list.value, "bo--")
+    plt.xlabel("lens distance ({})".format(dist_lens_list.unit))
+    plt.ylabel("sum of terms added to tau value at this lens distance ({})".format(tau_addition_term_list.unit))
+    plt.show()
+
+    plt.plot(dist_lens_list_unique.value, tau_sum_at_distance_list.value, "ro--")
+    plt.xlabel("lens distance ({})".format(dist_lens_list.unit))
+    plt.ylabel("tau sum after adding terms at this lens distance ({})".format(tau_addition_term_list.unit))
+    plt.show()
 
 def calculate_tau():
     #star_info_dict = reading_in_star_population.read_star_pop(STAR_POP_FILEPATH, is_csv = False)
@@ -365,9 +450,9 @@ def calculate_tau():
                 bin_dict = {"dist": last_dist, "mass_density_average": ro_average, "delta_dist": delta_dist, \
                             "tau_addition_term": tau_addition_term.copy(), "tau_value_after_addition": tau_sum.copy(), "size": bin_size}
                 star_bins.append(bin_dict)
-                #print "star bin added, tau value: %s" % star_bins[-1]["tau_value_after_addition"]
-                #print "tau sum: %s" % tau_sum
-                #print "tau value after addition: %s" % bin_dict["tau_value_after_addition"]
+                #logger.debug("star bin added, tau value: %s" % star_bins[-1]["tau_value_after_addition"])
+                #logger.debug("tau sum: %s" % tau_sum)
+                #logger.debug("tau value after addition: %s" % bin_dict["tau_value_after_addition"])
 
             last_bin_dist = last_dist
             mass_density_bin = []
@@ -377,11 +462,11 @@ def calculate_tau():
         if len(star_bins) > 0 and i > len(star_pop)/2:
             latest_star_bin = star_bins[-1]
             latest_tau = latest_star_bin["tau_value_after_addition"]
-            #print "latest star bin tau: %s          error count: %s" % (latest_tau, error_counter)
+            #logger.debug("latest star bin tau: %s          error count: %s" % (latest_tau, error_counter))
             #if latest_tau <= 3.68105603883e-14:
                 #error_counter += 1
-                #print "!!!"
-                #print latest_star_bin
+                #logger.debug("!!!")
+                #logger.debug(latest_star_bin)
                 #if error_counter >= 0:
                     #sys.exit()
         """
@@ -395,12 +480,12 @@ def calculate_tau():
         logger.info("")
         logger.info("")
         #if len(star_bins) > 0:
-            #print "First star bin tau value: %s" % star_bins[0]["tau_value_after_addition"]
+            #logger.debug("First star bin tau value: %s" % star_bins[0]["tau_value_after_addition"])
     logger.info("Final tau_sum: %s" % tau_sum)
     logger.info("Number of bins: %s" % len(star_bins))
 
-    print "Final tau_sum: %s" % tau_sum
-    print "Number of bins: %s" % len(star_bins)
+    logger.debug("Final tau_sum: %s" % tau_sum)
+    logger.debug("Number of bins: %s" % len(star_bins))
 
     with open(STAR_BIN_FILEPATH, "w") as star_bin_file:
         writer = csv.DictWriter(star_bin_file, fieldnames=STAR_BIN_FIELDNAMES)
@@ -516,24 +601,13 @@ def get_angular_einstein_radius(mass_lens, dist_lens, dist_source):
 def run_test(args):
     if args:
         if args[0] == "alt":
-            calculate_tau_alt()
+            calculate_tau_alt_test()
         elif args[0] == "alt_with_impact_param":
-            example_catalogue_lists = get_example_catalogue_lists()
-            catalogue_lens_list = example_catalogue_lists["lens"]
-            catalogue_source_list = example_catalogue_lists["source"]
-            calculate_tau_alt_with_impact_param(catalogue_lens_list, catalogue_source_list)
+            calculate_tau_alt_with_impact_param_test()
         elif args[0] == "alt_equivalency_test":
-            if IMPACT_PARAM_WEIGHT_DEBUG and INVERSE_WEIGHT_DEBUG:
-                example_catalogue_lists = get_example_catalogue_lists_2()
-                catalogue_lens_list = example_catalogue_lists["lens"]
-                catalogue_source_list = example_catalogue_lists["source"]
-                calculate_tau_alt_with_impact_param(catalogue_lens_list, catalogue_source_list)
-            else:
-                print("Gobal constants IMPACT_PARAM_WEIGHT_DEBUG and INVERSE_WEIGHT_DEBUG must be True")
-                print("IMPACT_PARAM_WEIGHT_DEBUG: {!s:<20} INVERSE_WEIGHT_DEBUG: {!s})".format(IMPACT_PARAM_WEIGHT_DEBUG,
-                                                                                     INVERSE_WEIGHT_DEBUG))
+            calculate_tau_alt_equivalency_test()
     else:
-        calculate_tau()
+        calculate_tau_test()
 
 def main():
     if len(sys.argv) > 1:
