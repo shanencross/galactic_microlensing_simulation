@@ -160,6 +160,17 @@ def get_mags(star):
 
     return mag_dict
 
+def get_gaussian_mag(mag, size=None, debug=False):
+    mag_error = simulate_mag_error(mag)["mag_err"]
+
+    # For testing non-randomized result
+    if debug:
+        mag_gaussian = mag + mag_error
+    else:
+        mag_gaussian = np.random.normal(mag, mag_error, size)
+
+    return mag_gaussian
+
 def get_gaussian_star(star):
     if star.has_key("V"):
         mag_primary = float(star["V"])
@@ -201,16 +212,19 @@ def get_gaussian_mags(mag_dict):
 
     return mag_gaussian_dict
 
-def get_gaussian_mag(mag, size=None, debug=False):
-    mag_error = simulate_mag_error(mag)["mag_err"]
+def plot_gaussian_histogram_from_mag(mag, size=1000, bins=30, normed=True):
+    gaussian_mag_assortment = get_gaussian_mag(mag, size=size)
+    count, bins, ignored = plt.hist(gaussian_mag_assortment, bins=bins, normed=normed)
+    plt.show()
 
-    # For testing non-randomized result
-    if debug:
-        mag_gaussian = mag + mag_error
+def plot_gaussian_histogram(star, size=10000, bins=100, normed=True):
+    if star.has_key("V"):
+        mag = float(star["V"])
+    elif star.has_key("u"):
+        mag = float(star["u"])
     else:
-        mag_gaussian = np.random.normal(mag, mag_error, size)
-
-    return mag_gaussian
+        return
+    plot_gaussian_histogram_from_mag(mag, size=size, bins=bins, normed=normed)
 
 def testing():
     star_catalogue = read_star_pop(STAR_POP_FILEPATH, is_csv = True)
@@ -255,99 +269,6 @@ def testing():
         logger.debug("gaussian_mag_{}_alt: {}".format(band, gaussian_mag_alt))
 
     plot_gaussian_histogram(star)
-
-def plot_gaussian_histogram(star, size=10000, bins=100, normed=True):
-    if star.has_key("V"):
-        mag = float(star["V"])
-    elif star.has_key("u"):
-        mag = float(star["u"])
-    else:
-        return
-    plot_gaussian_histogram_from_mag(mag, size=size, bins=bins, normed=normed)
-
-def plot_gaussian_histogram_from_mag(mag, size=1000, bins=30, normed=True):
-    gaussian_mag_assortment = get_gaussian_mag(mag, size=size)
-    count, bins, ignored = plt.hist(gaussian_mag_assortment, bins=bins, normed=normed)
-    plt.show()
-
-    """
-    # Code for getting VBUIK magnitudes
-
-    color_B_V = float(star["B-V"])
-    color_U_B = float(star["U-B"])
-    color_V_I = float(star["V-I"])
-    color_V_K = float(star["V-K"])
-
-    # B - V = color_B_V -> B = V + color_B_V
-    mag_B = mag_V + color_B_V
-    logger.debug("mag_B: {}".format(mag_B))
-
-    # U - B = color_U_B -> U = B + color_U_B
-    # -> U = V + color_B_V + color_U_B
-    mag_U = mag_B + color_U_B
-    mag_U_alt = mag_V + color_B_V + color_U_B
-    logger.debug("mag_U: {}".format(mag_U))
-    logger.debug("mag_U_alt: {}".format(mag_U_alt))
-
-    #V - I = color_V_I -> I = V - color_V_I
-    mag_I = mag_V - color_V_I
-    logger.debug("mag_I: {}".format(mag_I))
-
-    #V - K = color_V_K -> K = V - color_V_K
-    mag_K = mag_V - color_V_K
-    logger.debug("mag_K: {}".format(mag_K))
-    """
-
-    """
-    # Code for geting ugriz magnitudes
-    star["u"] = 24.3
-    star["u-g"] = 0.3
-    star["g-r"] = 0.5
-    star["r-i"] = 1.1
-    star["i-z"] = 0.1
-
-    mag_u = float(star["u"])
-    color_u_g = float(star["u-g"])
-    color_g_r = float(star["g-r"])
-    color_r_i = float(star["r-i"])
-    color_i_z = float(star["i-z"])
-
-    logger.debug("mag_u: {}".format(mag_u))
-
-    # u - g = color_u_g ->  g = u - color_u_g
-    mag_g = mag_u - color_u_g
-    logger.debug("mag_g: {}".format(mag_g))
-
-    # g - r = color_g_r -> r = g - color_g_r
-    # -> r = u - color_u_g - color_g_r
-    mag_r = mag_g - color_g_r
-    mag_r_alt = mag_u - color_u_g - color_g_r
-    logger.debug("mag_r: {}".format(mag_r))
-    logger.debug("mag_r_alt: {}".format(mag_r_alt))
-
-    # r - i = color_r_i -> i = r - color_r_i
-    # -> i = g - color_g_r - color_r_i
-    # -> i = u - color_u_g - color_g_r - color_r_i
-    mag_i = mag_r - color_r_i
-    mag_i_alt = mag_g - color_g_r - color_r_i
-    mag_i_alt_2 = mag_u - color_u_g - color_g_r - color_r_i
-    logger.debug("mag_i: {}".format(mag_i))
-    logger.debug("mag_i_alt: {}".format(mag_i_alt))
-    logger.debug("mag_i_alt_2: {}".format(mag_i_alt_2))
-
-    # i - z = color_i_z -> z = i - color_i_z
-    # -> z = r - color_r_i - color_i_z
-    # -> z = g - color_g_r - color_r_i - color_i_z
-    # -> z = u - color_u_g - color_g_r - color_r_i - color_i_z
-    mag_z = mag_i - color_i_z
-    mag_z_alt = mag_r - color_r_i - color_i_z
-    mag_z_alt_2 = mag_g - color_g_r - color_r_i - color_i_z
-    mag_z_alt_3 = mag_u - color_u_g - color_g_r - color_r_i - color_i_z
-    logger.debug("mag_z: {}".format(mag_z))
-    logger.debug("mag_z_alt: {}".format(mag_z_alt))
-    logger.debug("mag_z_alt_2: {}".format(mag_z_alt_2))
-    logger.debug("mag_z_alt_3: {}".format(mag_z_alt_3))
-    """
 
 def main():
     testing()
