@@ -35,7 +35,6 @@ def read_star_pop_csv(star_pop_filepath = STAR_POP_FILEPATH):
         star_info_dict = {"star_pop": star_dict_list, "fieldnames": star_pop_fieldnames}
         return star_info_dict
         
-
 def read_star_pop_resu(star_pop_filepath = STAR_POP_FILEPATH, star_pop_starting_fieldname = STAR_POP_STARTING_FIELDNAME):
     with open(star_pop_filepath, "r") as star_pop_file:
         #print "Reading star population file: %s" % (star_pop_filepath)
@@ -45,11 +44,11 @@ def read_star_pop_resu(star_pop_filepath = STAR_POP_FILEPATH, star_pop_starting_
         coordinates_gal = None
         for line in star_pop_file:
             split_line = line.split()
-           
+
             if not reading_star_table and len(split_line) > 0 and split_line[0] == "(l":
                 l_coord = float(split_line[2][:-1])
                 b_coord = float(split_line[5][:-1])
-                coordinates_gal = (l_coord, b_coord) 
+                coordinates_gal = (l_coord, b_coord)
 
             elif not reading_star_table and len(split_line) > 0 and split_line[0] == star_pop_starting_fieldname:
                 star_pop_fieldnames = split_line
@@ -60,7 +59,7 @@ def read_star_pop_resu(star_pop_filepath = STAR_POP_FILEPATH, star_pop_starting_
                 reading_star_table = False
                # print "Reached end of star table in file"
 
-            elif reading_star_table:	
+            elif reading_star_table:
                 star_dict = {}
                 split_line = line.split()
 
@@ -68,7 +67,7 @@ def read_star_pop_resu(star_pop_filepath = STAR_POP_FILEPATH, star_pop_starting_
                     star_pop_fieldname = star_pop_fieldnames[i]
                     star_dict[star_pop_fieldname] = float(split_line[i])
                 star_dict_list.append(star_dict)
-    
+
     #element_count = 4
     #for star_dict in star_dict_list[:element_count]:
       #  print "First %s elements of star dictionary list:" % (element_count)
