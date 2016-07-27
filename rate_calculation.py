@@ -5,7 +5,7 @@ rate_calculation.py
 import sys
 import os
 import numpy as np
-import astropy.units as units
+from astropy import units
 from astropy.constants import G, c
 import csv
 import matplotlib.pyplot as plt
@@ -43,8 +43,8 @@ else:
     logger.disabled = True
 
 #STAR_POP_DIR = os.path.join(sys.path[0], "star_population_tables")
-STAR_POP_DIR = os.path.join(sys.path[0], "star_population_tables_csv")
-#STAR_POP_DIR = os.path.join(sys.path[0], "star_population_tables_csv_temp")
+#STAR_POP_DIR = os.path.join(sys.path[0], "star_population_tables_csv")
+STAR_POP_DIR = os.path.join(sys.path[0], "star_population_tables_csv_temp")
 
 #STAR_POP_FILENAME = "1466028123.767236.resu"
 #STAR_POP_FILENAME = "1466028463.709599.resu"
@@ -55,7 +55,10 @@ STAR_POP_DIR = os.path.join(sys.path[0], "star_population_tables_csv")
 #STAR_POP_FILENAME = "1466633557.703409.csv"
 #STAR_POP_FILENAME = "1467072296.449283_sample.csv"
 #STAR_POP_FILENAME = "1467072296.449283_sample_0.001.csv"
-STAR_POP_FILENAME = "1467072296.449283_sample_1e-05.csv"
+#STAR_POP_FILENAME = "1467072296.449283_sample_1e-05.csv"
+#STAR_POP_FILENAME = "1469233189.751105_sample_0.0001.csv"
+#STAR_POP_FILENAME = "1469233189.751105_sample_1e-05.csv"
+STAR_POP_FILENAME = "1469568862.909192_sample_0.01.csv"
 
 STAR_POP_FILEPATH = os.path.join(STAR_POP_DIR, STAR_POP_FILENAME)
 
@@ -320,9 +323,9 @@ def calculate_tau_alt(star_info_dict):
     tau_sum_list = units.Quantity(tau_sum_list)
     tau_addition_term_list = units.Quantity(tau_addition_term_list)
 
-    logger.debug("dist_lens_list: %s" % dist_lens_list)
+    logger.debug("dist_lens_list: {}".format(dist_lens_list))
     logger.debug("tau_sum_list: {}".format(tau_sum_list))
-    logger.debug("tau_addition_term_list: %s" % tau_addition_term_list)
+    logger.debug("tau_addition_term_list: {}".format(tau_addition_term_list))
 
     tau_info_dict = {"tau": tau_sum, "dist_lens_list": dist_lens_list, "tau_sum_list": tau_sum_list,
                      "tau_addition_term_list": tau_addition_term_list}
@@ -587,11 +590,14 @@ def get_delta_volume(dist_1, dist_2):
     logger.debug("delta_volume: %s" % delta_volume)
     return delta_volume
 
+
+"""
 def get_solid_angle(l_i, l_f, b_i, b_f):
     delta_l = l_f - l_i
     solid_angle = np.abs(delta_l * (np.sin(b_f)- np.sin(b_i)))
     logger.debug("solid_angle: %s" % solid_angle)
     return solid_angle
+"""
 
 def get_angular_einstein_radius(mass_lens, dist_lens, dist_source):
     theta = ( ( np.sqrt(4 * G * mass_lens * (dist_source - dist_lens) \
