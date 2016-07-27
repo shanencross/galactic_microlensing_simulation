@@ -1,5 +1,5 @@
 import unittest
-import astropy.units as units
+from astropy import units
 
 import rate_calculation
 
