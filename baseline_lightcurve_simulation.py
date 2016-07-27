@@ -175,6 +175,15 @@ def get_gaussian_star(star):
     star_gaussian[band_primary] = mag_primary_gaussian
     return star_gaussian
 
+def get_gaussian_mags_alt(mag_dict):
+    mag_gaussian_dict = {}
+    for band in mag_dict:
+        mag = mag_dict[band]
+        mag_gaussian = get_gaussian_mag(mag)
+        mag_gaussian_dict[band] = mag_gaussian
+
+    return mag_gaussian_dict
+
 def get_gaussian_mags(mag_dict):
     if mag_dict.has_key("V"):
         mag_primary = mag_dict["V"]
@@ -225,7 +234,9 @@ def testing():
     gaussian_mag_dict = get_mags(gaussian_star)
     #print mag_dict
     #print gaussian_mag_dict
-    gaussian_mag_dict_alt = get_gaussian_mags(mag_dict)
+    gaussian_mag_dict_2 = get_gaussian_mags(mag_dict)
+
+    gaussian_mag_dict_alt = get_gaussian_mags_alt(mag_dict)
 
     for band in mag_dict:
         mag = mag_dict[band]
@@ -235,20 +246,23 @@ def testing():
         gaussian_mag = gaussian_mag_dict[band]
         logger.debug("gaussian_mag_{}: {}".format(band, gaussian_mag))
 
+    for band in gaussian_mag_dict_2:
+        gaussian_mag_2 = gaussian_mag_dict_2[band]
+        logger.debug("gaussian_mag_{}_2: {}".format(band, gaussian_mag_2))
+
     for band in gaussian_mag_dict_alt:
         gaussian_mag_alt = gaussian_mag_dict_alt[band]
         logger.debug("gaussian_mag_{}_alt: {}".format(band, gaussian_mag_alt))
 
     plot_gaussian_histogram(star)
 
-def plot_gaussian_histogram(star, size=1000, bins=30, normed=True):
+def plot_gaussian_histogram(star, size=10000, bins=100, normed=True):
     if star.has_key("V"):
         mag = float(star["V"])
     elif star.has_key("u"):
         mag = float(star["u"])
     else:
         return
-
     plot_gaussian_histogram_from_mag(mag, size=size, bins=bins, normed=normed)
 
 def plot_gaussian_histogram_from_mag(mag, size=1000, bins=30, normed=True):
