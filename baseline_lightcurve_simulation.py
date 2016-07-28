@@ -233,6 +233,16 @@ def plot_gaussian_histogram(star, size=10000, bins=100, normed=True):
     plot_gaussian_histogram_from_mag(mag, size=size, bins=bins, normed=normed)
 
 def make_baseline_lightcurve(star, duration, period, band_list=None):
+    """Generate periodic baseline lightcurve for a given star, with
+    band cycling and tracking of overall lightcurve as well as
+    lightcurve for each band
+        """
+
+    """Set up the 0 start time as either a number or an astropy Quantity
+    depending on if the duration and period are astropy Quantities,
+    storing whether we have numbers or Quantities with a boolean for
+    later reference
+    """
     if isinstance(duration, units.Quantity) and isinstance(period, units.Quantity):
         time_is_quantity = True
         time_start = 0 * duration.unit
@@ -240,6 +250,10 @@ def make_baseline_lightcurve(star, duration, period, band_list=None):
         time_is_quantity = False
         time_start = 0
 
+    """If no band list has been provided, set up the default band lists
+    using whether the star dictionary has a V or u magnitude to
+    determine whether to use the VBUIK or ugriz set of bands
+    """
     if band_list is None:
         if star.has_key("V"):
             band_list = ["V", "B", "U", "I", "K"]
@@ -262,30 +276,37 @@ def make_baseline_lightcurve(star, duration, period, band_list=None):
         lightcurve_dict[mags_key] = []
         lightcurve_dict[mag_errors_key] = []
 
+    """Iterate over each time in steps equal to the period, up to the duration,
+    building up time, mag, and mag error arrays for the overall lightcurve
+    and the lightcurve for each band. Simultaneously iterate through the band
+    list, and wrapping around to the first band when we reach its end, since we
+    measure a different band for each measurement.
+    """
     band_index = 0
-    mag_dict = get_mags(star)
+    mag_dict = get_mags(star) # Obtain non-randomized mags in all frequencies for this star
     time = time_start
     while time < duration:
+        # Simulate gaussian randomized mag for the current band
         band = band_list[band_index]
-
-        logger.debug("Time: {}".format(time))
-        logger.debug("Time: {}".format(time))
-        logger.debug("Band: {}".format(band))
-
         mag = mag_dict[band]
         gaussian_mag_info = get_gaussian_mag_info(mag)
         mag_gaussian = gaussian_mag_info["gaussian_mag"]
 
+        # Simulate the error for the gaussian randomized mag
         mag_error = gaussian_mag_info["mag_err"]
         mag_gaussian_error = gaussian_mag_info["gaussian_mag_err"]
 
+        logger.debug("Band: {}".format(band))
+        logger.debug("Time: {}".format(time))
         logger.debug("Mag before randomization: {}".format(mag))
         logger.debug("Mag one sigma simulated error: {}".format(mag_error))
         logger.debug("Mag after randomization: {}".format(mag_gaussian))
         logger.debug("Error of post-randomization mag: {}".format(mag_gaussian_error))
 
         # If the error is too big, skip over this data point
-        if mag_gaussian_error < MAG_ERROR_THRESHOLD:
+        if mag_gaussian_error >= MAG_ERROR_THRESHOLD:
+            logger.warning("ERROR TOO LARGE")
+        else:
             times_key = "times_{}".format(band)
             mags_key = "mags_{}".format(band)
             mag_errors_key = "mag_{}_errs".format(band)
@@ -301,9 +322,9 @@ def make_baseline_lightcurve(star, duration, period, band_list=None):
             lightcurve_dict["mag_errs"].append(mag_gaussian_error)
             lightcurve_dict[mags_key].append(mag_gaussian)
             lightcurve_dict[mag_errors_key].append(mag_gaussian_error)
-        else:
-            logger.warning("ERROR TOO LARGE")
 
+        # Proceed to the time of the next observation, and to the next band,
+        # wrapping around to the start of the band list if needed
         time += period
         band_index += 1
         if band_index >= len(band_list):
@@ -317,25 +338,42 @@ def make_baseline_lightcurve(star, duration, period, band_list=None):
 
     return lightcurve_dict
 
-def plot_lightcurve(lightcurve_dict, connect_all=False, show_error_bars=True):
+def plot_lightcurve(lightcurve_dict, connect_all=False, show_error_bars=True, band_list=None):
+    """ Plot an overal lightcurve, and/or the individual lightcurve of each
+    band.
+    """
+    # Overwritten later if show error bars flag is on, otherwise no error bars
     error_bars = None
+
+    # Retrieve overall lightcurve time, magnitude, and magnitude error lists
     time_list = lightcurve_dict["times"]
     mag_list = lightcurve_dict["mags"]
     mag_error_list = lightcurve_dict["mag_errs"]
 
+    # Plot the overall lightcurve, but only if they aren't empty lists
+    # and if the connect all flag is on.
     if time_list and mag_list:
         if connect_all:
+            # Include error bars only if the flag is on.
             if show_error_bars:
                 error_bars = mag_error_list.value
             plt.errorbar(time_list.value, mag_list.value, yerr=error_bars, fmt="ro--")
+        # If not times and mags aren't empty lists, label the plot
         plt.xlabel("time ({})".format(time_list.unit))
         plt.ylabel("magnitude ({})".format(mag_list.unit))
 
-    color_list = ["m", "g", "b", "y", "c"]
-    color_index = 0
-    if lightcurve_dict.has_key("bands"):
-        bands = lightcurve_dict["bands"]
-        for band in bands:
+    """Plot each band's lightcurve, displaying each as a distinct color.
+    If connect all flag is on, don't connect the individual lightcurves with
+    dashed lines since the overall curve is connected with dashed lines.
+    """
+
+    if lightcurve_dict.has_key("bands") and band_list is None:
+        band_list = lightcurve_dict["bands"]
+
+    if band_list is not None:
+        color_list = ["m", "g", "b", "y", "c"]
+        color_index = 0
+        for band in band_list:
             color = color_list[color_index]
 
             if connect_all:
@@ -349,14 +387,21 @@ def plot_lightcurve(lightcurve_dict, connect_all=False, show_error_bars=True):
             mag_list = lightcurve_dict["mags_{}".format(band)]
             mag_error_list = lightcurve_dict["mag_{}_errs".format(band)]
 
+            """Don't plot a band if one of its data item lists is empty.
+            This could happen if one band's data points were all excluded
+            because the magnitude errors all exceeded the threshold.
+            """
             if time_list and mag_list and mag_error_list:
+                # Include error bars only if the flag is on.
                 if show_error_bars:
                     error_bars = mag_error_list.value
                 plt.errorbar(time_list.value, mag_list.value, yerr=error_bars, fmt=fmt)
 
             color_index += 1
-            if color_index >= len(bands):
-                color_index = 0
+            if color_index > len(color_list):
+                logger.warning("The number of bands has exceeded the number of colors.")
+                logger.warning("Wrapping around to the start of the color list, but...")
+                logger.warning("This means color/band correspondences will be broken.")
 
     plt.gca().invert_yaxis()
     plt.show()
@@ -422,7 +467,7 @@ def testing_lightcurve_functions():
 
     baseline_lightcurve_dict = make_baseline_lightcurve(star, duration, period)
     logger.debug("Magnitude error threshold: {}".format(MAG_ERROR_THRESHOLD))
-    plot_lightcurve(baseline_lightcurve_dict, connect_all=True, show_error_bars=True)
+    plot_lightcurve(baseline_lightcurve_dict, connect_all=False)
 
 def main():
     if len(sys.argv) > 1:
