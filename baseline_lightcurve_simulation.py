@@ -311,6 +311,9 @@ def make_baseline_lightcurve(star, duration, period, band_list=None):
             mags_key = "mags_{}".format(band)
             mag_errors_key = "mag_{}_errs".format(band)
 
+            # time changes each iteration, so if it's an astropy Quantity
+            # we need to copy it, otherwise the old list elements will
+            # be altered on each iteration
             if time_is_quantity:
                 lightcurve_dict["times"].append(time.copy())
                 lightcurve_dict[times_key].append(time.copy())
@@ -332,6 +335,9 @@ def make_baseline_lightcurve(star, duration, period, band_list=None):
 
         logger.debug("")
 
+    """Convert each data item list to an array Quantity, which has an array
+    as its value member and the corresponding unit as its unit member.
+    """
     for key in lightcurve_dict:
         if key != "bands" and lightcurve_dict[key]:
             lightcurve_dict[key] = units.Quantity(lightcurve_dict[key])
