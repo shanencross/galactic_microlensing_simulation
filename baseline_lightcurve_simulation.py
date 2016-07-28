@@ -57,6 +57,8 @@ STAR_POP_FILENAME = "1467072296.449283_sample_1e-05.csv"
 
 STAR_POP_FILEPATH = os.path.join(STAR_POP_DIR, STAR_POP_FILENAME)
 
+MAG_ERROR_THRESHOLD = 5 # Skip over data point if simulated magnitude error is larger than this
+
 def log_band_error(star, band, missing_key):
 
     logger.warning("Returning None value for magnitude")
@@ -84,7 +86,7 @@ def get_mag(star, band="V"):
             logger.warning("Returning None value for magnitude")
             return None
 
-        print star["V"]
+        #print star["V"]
         mag_V = float(star["V"])
         color_B_V = float(star["B-V"])
         color_U_B = float(star["U-B"])
@@ -160,16 +162,24 @@ def get_mags(star):
 
     return mag_dict
 
-def get_gaussian_mag(mag, size=None, debug=False):
+def get_gaussian_mag_info(mag, size=None, debug=False):
     mag_error = simulate_mag_error(mag)["mag_err"]
 
     # For testing non-randomized result
     if debug:
         mag_gaussian = mag + mag_error
+        #mag_gaussian = mag
     else:
         mag_gaussian = np.random.normal(mag, mag_error, size)
 
-    return mag_gaussian
+    if size is None or debug:
+        mag_gaussian_error = simulate_mag_error(mag_gaussian)["mag_err"]
+    else:
+        mag_gaussian_error = [simulate_mag_error(single_mag) for single_mag in mag_gaussian]
+
+    mag_gaussian_dict = {"gaussian_mag": mag_gaussian, "mag_err": mag_error,
+                         "gaussian_mag_err": mag_gaussian_error}
+    return mag_gaussian_dict
 
 def get_gaussian_star(star):
     if star.has_key("V"):
@@ -181,7 +191,7 @@ def get_gaussian_star(star):
     else:
         return None
 
-    mag_primary_gaussian = get_gaussian_mag(mag_primary)
+    mag_primary_gaussian = get_gaussian_mag_info(mag_primary)["gaussian_mag"]
     star_gaussian = star.copy()
     star_gaussian[band_primary] = mag_primary_gaussian
     return star_gaussian
@@ -190,7 +200,7 @@ def get_gaussian_mags_alt(mag_dict):
     mag_gaussian_dict = {}
     for band in mag_dict:
         mag = mag_dict[band]
-        mag_gaussian = get_gaussian_mag(mag)
+        mag_gaussian = get_gaussian_mag_info(mag)["gaussian_mag"]
         mag_gaussian_dict[band] = mag_gaussian
 
     return mag_gaussian_dict
@@ -203,7 +213,7 @@ def get_gaussian_mags(mag_dict):
     else:
         return None
 
-    mag_primary_gaussian = get_gaussian_mag(mag_primary)
+    mag_primary_gaussian = get_gaussian_mag_info(mag_primary)["gaussian_mag"]
     gaussian_difference = mag_primary_gaussian - mag_primary
 
     mag_gaussian_dict = {}
@@ -213,7 +223,7 @@ def get_gaussian_mags(mag_dict):
     return mag_gaussian_dict
 
 def plot_gaussian_histogram_from_mag(mag, size=1000, bins=30, normed=True):
-    gaussian_mag_assortment = get_gaussian_mag(mag, size=size)
+    gaussian_mag_assortment = get_gaussian_mag_info(mag, size=size)["gaussian_mag"]
     count, bins, ignored = plt.hist(gaussian_mag_assortment, bins=bins, normed=normed)
     plt.show()
 
@@ -226,7 +236,117 @@ def plot_gaussian_histogram(star, size=10000, bins=100, normed=True):
         return
     plot_gaussian_histogram_from_mag(mag, size=size, bins=bins, normed=normed)
 
-def testing():
+def make_baseline_lightcurve(star, duration, period, band_list=None):
+    if isinstance(duration, units.Quantity) and isinstance(period, units.Quantity):
+        time_is_quantity = True
+        time_start = 0 * duration.unit
+    else:
+        time_is_quantity = False
+        time_start = 0
+
+    if band_list is None:
+        if star.has_key("V"):
+            band_list = ["V", "B", "U", "I", "K"]
+            #band_list = ["V"]
+        elif star.has_key("u"):
+            band_list = ["u", "g", "r", "i", "z"]
+        else:
+            logger.warning("Star dict has neither V nor u band magnitude.")
+            logger.warning("Returning empty dictionary as baseline lightcurve")
+            return {}
+
+    lightcurve_band_dict = {"bands": band_list}
+    for band in band_list:
+        times_key = "times_{}".format(band)
+        mags_key = "mags_{}".format(band)
+        mags_error_key = "mags_{}_err".format(band)
+        lightcurve_band_dict[times_key] = []
+        lightcurve_band_dict[mags_key] = []
+        lightcurve_band_dict[mags_error_key] = []
+
+    band_index = 0
+    mag_dict = get_mags(star)
+    time_list = []
+    mag_list = []
+    mag_error_list = []
+    time = time_start
+    while time < duration:
+        band = band_list[band_index]
+
+        logger.debug("Time: {}".format(time))
+        logger.debug("Time: {}".format(time))
+        logger.debug("Band: {}".format(band))
+
+        mag = mag_dict[band]
+        gaussian_mag_info = get_gaussian_mag_info(mag)
+        mag_gaussian = gaussian_mag_info["gaussian_mag"]
+
+        mag_error = gaussian_mag_info["mag_err"]
+        mag_gaussian_error = gaussian_mag_info["gaussian_mag_err"]
+
+        logger.debug("Mag before randomization: {}".format(mag))
+        logger.debug("Mag one sigma simulated error: {}".format(mag_error))
+        logger.debug("Mag after randomization: {}".format(mag_gaussian))
+        logger.debug("Error of post-randomization mag: {}".format(mag_gaussian_error))
+
+        # If the error is too big, skip over this data point
+        if mag_gaussian_error < MAG_ERROR_THRESHOLD:
+            times_key = "times_{}".format(band)
+            mags_key = "mags_{}".format(band)
+            mags_error_key = "mags_{}_err".format(band)
+
+            if time_is_quantity:
+                time_list.append(time.copy())
+                lightcurve_band_dict[times_key].append(time.copy())
+            else:
+                time_list.append(time)
+                lightcurve_band_dict[times_key].append(time.copy())
+
+            mag_list.append(mag_gaussian)
+            mag_error_list.append(mag_gaussian_error)
+            lightcurve_band_dict[mags_key].append(mag_gaussian)
+            lightcurve_band_dict[mags_error_key].append(mag_gaussian_error)
+        else:
+            logger.warning("ERROR TOO LARGE")
+
+        time += period
+        band_index += 1
+        if band_index >= len(band_list):
+            band_index = 0
+
+        logger.debug("")
+
+    time_list = units.Quantity(time_list)
+    mag_list = units.Quantity(mag_list)
+    mag_error_list = units.Quantity(mag_error_list)
+
+    for key in lightcurve_band_dict:
+        lightcurve_band_dict[key]
+
+    #logger.debug("Time list: {}".format(time_list))
+
+    lightcurve_dict = {"times": time_list, "mags": mag_list, "mag_errs": mag_error_list}
+    return lightcurve_dict
+
+def plot_lightcurve(lightcurve_dict, lightcurve_band_dict=None):
+    time_list = lightcurve_dict["times"]
+    mag_list = lightcurve_dict["mags"]
+    mag_error_list = lightcurve_dict["mag_errs"]
+
+    #print len(time_list), len(mag_list), len(mag_error_list)
+    plt.errorbar(time_list.value, mag_list.value, yerr=mag_error_list.value, fmt="ro--")
+    plt.xlabel("time ({})".format(time_list.unit))
+    plt.ylabel("magnitude ({})".format(mag_list.unit))
+
+
+    if lightcurve_band_dict is not None:
+        for band in lightcurve_band_dict["bands"]:
+            plt.errorbar()
+
+    plt.gca().invert_yaxis()
+    plt.show()
+
+def testing_band_functions():
     star_catalogue = read_star_pop(STAR_POP_FILEPATH, is_csv = True)
     star_pop = star_catalogue["star_pop"]
     star = star_pop[0]
@@ -256,22 +376,47 @@ def testing():
         mag = mag_dict[band]
         logger.debug("mag_{}: {}".format(band, mag))
 
+    # log gaussian mags computed by acquiring magnitudes from a star
+    # whose V mag has been gaussian randomized
     for band in gaussian_mag_dict:
         gaussian_mag = gaussian_mag_dict[band]
         logger.debug("gaussian_mag_{}: {}".format(band, gaussian_mag))
 
+    # log gaussian mags computed by gaussian randomizing V mag of a mag dict
+    # taken from an unmodified star, and then adding the same sigma to each
+    # mag from the other bands
     for band in gaussian_mag_dict_2:
         gaussian_mag_2 = gaussian_mag_dict_2[band]
         logger.debug("gaussian_mag_{}_2: {}".format(band, gaussian_mag_2))
 
+    # log gaussian mags computed by gaussian randomizing the mag from each band
+    # in a mag dict taken from an unmodified star
     for band in gaussian_mag_dict_alt:
         gaussian_mag_alt = gaussian_mag_dict_alt[band]
         logger.debug("gaussian_mag_{}_alt: {}".format(band, gaussian_mag_alt))
 
     plot_gaussian_histogram(star)
 
+def testing_lightcurve_functions():
+    star_catalogue = read_star_pop(STAR_POP_FILEPATH, is_csv = True)
+    star_pop = star_catalogue["star_pop"]
+    star = star_pop[0]
+
+    duration = 30 * units.hr
+    period = 1 * units.hr
+
+    baseline_lightcurve_dict = make_baseline_lightcurve(star, duration, period)
+    logger.debug("Magnitude error threshold: {}".format(MAG_ERROR_THRESHOLD))
+    plot_lightcurve(baseline_lightcurve_dict)
+
 def main():
-    testing()
+    if len(sys.argv) > 1:
+        if sys.argv[1] == "bands":
+            testing_band_functions()
+        elif sys.argv[1] == "lightcurve":
+            testing_lightcurve_functions()
+    else:
+        testing_band_functions()
 
 if __name__ == "__main__":
     main()
