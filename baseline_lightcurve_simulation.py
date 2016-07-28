@@ -317,14 +317,17 @@ def make_baseline_lightcurve(star, duration, period, band_list=None):
 
     return lightcurve_dict
 
-def plot_lightcurve(lightcurve_dict, connect_all=False):
+def plot_lightcurve(lightcurve_dict, connect_all=False, show_error_bars=True):
+    error_bars = None
     time_list = lightcurve_dict["times"]
     mag_list = lightcurve_dict["mags"]
     mag_error_list = lightcurve_dict["mag_errs"]
 
     if time_list and mag_list:
         if connect_all:
-            plt.errorbar(time_list.value, mag_list.value, yerr=mag_error_list.value, fmt="ro--")
+            if show_error_bars:
+                error_bars = mag_error_list.value
+            plt.errorbar(time_list.value, mag_list.value, yerr=error_bars, fmt="ro--")
         plt.xlabel("time ({})".format(time_list.unit))
         plt.ylabel("magnitude ({})".format(mag_list.unit))
 
@@ -347,7 +350,9 @@ def plot_lightcurve(lightcurve_dict, connect_all=False):
             mag_error_list = lightcurve_dict["mag_{}_errs".format(band)]
 
             if time_list and mag_list and mag_error_list:
-                plt.errorbar(time_list.value, mag_list.value, yerr=mag_error_list.value, fmt=fmt)
+                if show_error_bars:
+                    error_bars = mag_error_list.value
+                plt.errorbar(time_list.value, mag_list.value, yerr=error_bars, fmt=fmt)
 
             color_index += 1
             if color_index >= len(bands):
@@ -412,12 +417,12 @@ def testing_lightcurve_functions():
     star_pop = star_catalogue["star_pop"]
     star = star_pop[0]
 
-    duration = 1 * units.hr
-    period = 1 * units.min
+    duration = 1000 * units.hr
+    period = 1 * units.hr
 
     baseline_lightcurve_dict = make_baseline_lightcurve(star, duration, period)
     logger.debug("Magnitude error threshold: {}".format(MAG_ERROR_THRESHOLD))
-    plot_lightcurve(baseline_lightcurve_dict, connect_all=False)
+    plot_lightcurve(baseline_lightcurve_dict, connect_all=True, show_error_bars=True)
 
 def main():
     if len(sys.argv) > 1:
