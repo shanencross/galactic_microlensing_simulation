@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 from reading_in_star_population import read_star_pop
 import logger_setup
 from simulating_mag_error import simulate_mag_error
+from true_observation_time import get_true_observation_time
 
 LOGGER_ON = True # Enable or disable logger. Affects execution speed
 DEBUGGING_MODE = True # Turn this flag on if modifying and testing code - turn it off when actively being used
@@ -232,7 +233,8 @@ def plot_gaussian_histogram(star, size=10000, bins=100, normed=True):
         return
     plot_gaussian_histogram_from_mag(mag, size=size, bins=bins, normed=normed)
 
-def make_baseline_lightcurve(star, duration, period, band_list=None):
+def make_baseline_lightcurve(star, duration, period=17.7*units.h, night_duration=10*units.h,
+                             day_night_duration=24*units.h, band_list=None):
     """Generate periodic baseline lightcurve for a given star, with
     band cycling and tracking of overall lightcurve as well as
     lightcurve for each band
@@ -265,14 +267,16 @@ def make_baseline_lightcurve(star, duration, period, band_list=None):
             return {}
 
     # Set up lightcurve dict, with empty arrays for each piece of data
-    lightcurve_dict = {"bands": band_list, "times": [], "mags": [],
-                       "mag_errs": []}
+    lightcurve_dict = {"bands": band_list, "times": [], "true_times": [],
+                       "mags": [], "mag_errs": []}
     # set up data item lists specific to each band
     for band in band_list:
         times_key = "times_{}".format(band)
+        times_true_key = "true_times_{}".format(band)
         mags_key = "mags_{}".format(band)
         mag_errors_key = "mag_{}_errs".format(band)
         lightcurve_dict[times_key] = []
+        lightcurve_dict[times_true_key] = []
         lightcurve_dict[mags_key] = []
         lightcurve_dict[mag_errors_key] = []
 
@@ -281,11 +285,27 @@ def make_baseline_lightcurve(star, duration, period, band_list=None):
     and the lightcurve for each band. Simultaneously iterate through the band
     list, and wrapping around to the first band when we reach its end, since we
     measure a different band for each measurement.
+
+    We also obtain a list of "true" observation times, accounting for only being
+    able to observe at night. This is the time the observations would be made at
+    in the real world.
+
+    The ordinary "time" here is the time assuming we could observe at any time,
+    and do so with a regular period.
+
+    Assumption: Initial time 0 occurs at the start of a night.
+
+    This time vs. true time terminology is confusing and should be altered.
     """
     band_index = 0
     mag_dict = get_mags(star) # Obtain non-randomized mags in all frequencies for this star
     time = time_start
     while time < duration:
+        # get the "true" observation time, accounting for only being to
+        # observe at night
+        time_true = get_true_observation_time(time, night_duration=night_duration,
+                                         day_night_duration=day_night_duration)
+
         # Simulate gaussian randomized mag for the current band
         band = band_list[band_index]
         mag = mag_dict[band]
@@ -298,6 +318,7 @@ def make_baseline_lightcurve(star, duration, period, band_list=None):
 
         logger.debug("Band: {}".format(band))
         logger.debug("Time: {}".format(time))
+        logger.debug("True Time: {}".format(time_true))
         logger.debug("Mag before randomization: {}".format(mag))
         logger.debug("Mag one sigma simulated error: {}".format(mag_error))
         logger.debug("Mag after randomization: {}".format(mag_gaussian))
@@ -308,21 +329,24 @@ def make_baseline_lightcurve(star, duration, period, band_list=None):
             logger.warning("ERROR TOO LARGE")
         else:
             times_key = "times_{}".format(band)
+            times_true_key = "true_times_{}".format(band)
             mags_key = "mags_{}".format(band)
             mag_errors_key = "mag_{}_errs".format(band)
 
-            # time changes each iteration, so if it's an astropy Quantity
+            # time is added to each iteration, so if it's an astropy Quantity
             # we need to copy it, otherwise the old list elements will
             # be altered on each iteration
             if time_is_quantity:
-                lightcurve_dict["times"].append(time.copy())
-                lightcurve_dict[times_key].append(time.copy())
+                time_to_append = time.copy()
             else:
-                lightcurve_dict["times"].append(time)
-                lightcurve_dict[times_key].append(time)
+                time_to_append = time
 
+            lightcurve_dict["times"].append(time_to_append)
+            lightcurve_dict["true_times"].append(time_true)
             lightcurve_dict["mags"].append(mag_gaussian)
             lightcurve_dict["mag_errs"].append(mag_gaussian_error)
+            lightcurve_dict[times_key].append(time_to_append)
+            lightcurve_dict[times_true_key].append(time_true)
             lightcurve_dict[mags_key].append(mag_gaussian)
             lightcurve_dict[mag_errors_key].append(mag_gaussian_error)
 
@@ -344,7 +368,8 @@ def make_baseline_lightcurve(star, duration, period, band_list=None):
 
     return lightcurve_dict
 
-def plot_lightcurve(lightcurve_dict, connect_all=False, show_error_bars=True, band_list=None):
+def plot_lightcurve(lightcurve_dict, connect_all=False, show_error_bars=True,
+                    band_list=None, true_times=False):
     """ Plot an overal lightcurve, and/or the individual lightcurve of each
     band.
     """
@@ -352,9 +377,15 @@ def plot_lightcurve(lightcurve_dict, connect_all=False, show_error_bars=True, ba
     error_bars = None
 
     # Retrieve overall lightcurve time, magnitude, and magnitude error lists
-    time_list = lightcurve_dict["times"]
+    if true_times:
+        time_list = lightcurve_dict["true_times"]
+    else:
+        time_list = lightcurve_dict["times"]
     mag_list = lightcurve_dict["mags"]
     mag_error_list = lightcurve_dict["mag_errs"]
+
+    logger.debug(time_list)
+    logger.debug("True times: {}".format(true_times))
 
     # Plot the overall lightcurve, but only if they aren't empty lists
     # and if the connect all flag is on.
@@ -389,7 +420,10 @@ def plot_lightcurve(lightcurve_dict, connect_all=False, show_error_bars=True, ba
 
             logger.debug("{} {}".format(band, color))
 
-            time_list = lightcurve_dict["times_{}".format(band)]
+            if true_times:
+                time_list = lightcurve_dict["true_times_{}".format(band)]
+            else:
+                time_list = lightcurve_dict["times_{}".format(band)]
             mag_list = lightcurve_dict["mags_{}".format(band)]
             mag_error_list = lightcurve_dict["mag_{}_errs".format(band)]
 
@@ -468,12 +502,14 @@ def testing_lightcurve_functions():
     star_pop = star_catalogue["star_pop"]
     star = star_pop[0]
 
-    duration = 1000 * units.hr
-    period = 1 * units.hr
+    duration = 5*24 * units.h
+    period = 17.7 * units.h
+    night_duration = 10*units.h
 
-    baseline_lightcurve_dict = make_baseline_lightcurve(star, duration, period)
+    baseline_lightcurve_dict = make_baseline_lightcurve(star, duration, period=period,
+                                                        night_duration=night_duration)
     logger.debug("Magnitude error threshold: {}".format(MAG_ERROR_THRESHOLD))
-    plot_lightcurve(baseline_lightcurve_dict, connect_all=False)
+    plot_lightcurve(baseline_lightcurve_dict, true_times=True)
 
 def main():
     if len(sys.argv) > 1:
