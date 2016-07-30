@@ -369,7 +369,7 @@ def make_baseline_lightcurve(star, duration, period=17.7*units.h, night_duration
     return lightcurve_dict
 
 def plot_lightcurve(lightcurve_dict, connect_all=False, show_error_bars=True,
-                    band_list=None, true_times=False):
+                    band_list=None, true_times=False, convert_to_days=False):
     """ Plot an overal lightcurve, and/or the individual lightcurve of each
     band.
     """
@@ -381,6 +381,8 @@ def plot_lightcurve(lightcurve_dict, connect_all=False, show_error_bars=True,
         time_list = lightcurve_dict["true_times"]
     else:
         time_list = lightcurve_dict["times"]
+    if convert_to_days:
+        time_list = time_list.to(units.d)
     mag_list = lightcurve_dict["mags"]
     mag_error_list = lightcurve_dict["mag_errs"]
 
@@ -424,6 +426,8 @@ def plot_lightcurve(lightcurve_dict, connect_all=False, show_error_bars=True,
                 time_list = lightcurve_dict["true_times_{}".format(band)]
             else:
                 time_list = lightcurve_dict["times_{}".format(band)]
+            if convert_to_days:
+                time_list = time_list.to(units.d)
             mag_list = lightcurve_dict["mags_{}".format(band)]
             mag_error_list = lightcurve_dict["mag_{}_errs".format(band)]
 
@@ -502,14 +506,14 @@ def testing_lightcurve_functions():
     star_pop = star_catalogue["star_pop"]
     star = star_pop[0]
 
-    duration = 5*24 * units.h
+    duration = 30*24 * units.h
     period = 17.7 * units.h
     night_duration = 10*units.h
 
     baseline_lightcurve_dict = make_baseline_lightcurve(star, duration, period=period,
                                                         night_duration=night_duration)
     logger.debug("Magnitude error threshold: {}".format(MAG_ERROR_THRESHOLD))
-    plot_lightcurve(baseline_lightcurve_dict, true_times=True)
+    plot_lightcurve(baseline_lightcurve_dict, connect_all=False, true_times=True, convert_to_days=True)
 
 def main():
     if len(sys.argv) > 1:
