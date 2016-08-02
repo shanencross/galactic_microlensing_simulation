@@ -43,8 +43,8 @@ else:
     logger.disabled = True
 
 #STAR_POP_DIR = os.path.join(sys.path[0], "star_population_tables")
-#STAR_POP_DIR = os.path.join(sys.path[0], "star_population_tables_csv")
-STAR_POP_DIR = os.path.join(sys.path[0], "star_population_tables_csv_temp")
+STAR_POP_DIR = os.path.join(sys.path[0], "star_population_tables_csv")
+#STAR_POP_DIR = os.path.join(sys.path[0], "star_population_tables_csv_temp") # for alternate 146702296.449283
 
 #STAR_POP_FILENAME = "1466028123.767236.resu"
 #STAR_POP_FILENAME = "1466028463.709599.resu"
@@ -59,6 +59,7 @@ STAR_POP_DIR = os.path.join(sys.path[0], "star_population_tables_csv_temp")
 #STAR_POP_FILENAME = "1469233189.751105_sample_0.0001.csv"
 #STAR_POP_FILENAME = "1469233189.751105_sample_1e-05.csv"
 STAR_POP_FILENAME = "1469568862.909192_sample_0.01.csv"
+#STAR_POP_FILENAME = "1469568862.909192_sample_0.0001.csv"
 
 STAR_POP_FILEPATH = os.path.join(STAR_POP_DIR, STAR_POP_FILENAME)
 
@@ -186,26 +187,30 @@ def get_tau_addition_term_catalogue_source(star_catalogue_source, star_catalogue
     return tau_addition_term_catalogue_source
 
 def get_tau_addition_term_source(star_source, star_catalogue_lens_list):
-    mag_V_source = float(star_source["V"])
+    print star_source
+    if star_source.has_key("V"):
+        mag_source = float(star_source["V"])
+    elif star_source.has_key("u"):
+        mag_source = float(star_source["u"])
     dist_source = float(star_source["Dist"]) * units.kpc
     # Turning debug flag on always returns a weight of 1,
     # for testing in case something is wrong with the simulated weight
     impact_param_weight = \
-        calculating_impact_param.simulate_impact_param_weight(mag_V_source, \
+        calculating_impact_param.simulate_impact_param_weight(mag_source, \
             precision_model=PRECISION_MODEL, debug=IMPACT_PARAM_WEIGHT_DEBUG)
 
     if impact_param_weight != 1:
         pass
         #logger.debug("Impact parameter weight != 1")
         #logger.debug("Impact parameter weight: %s" % impact_param_weight)
-        #logger.debug("mag: %s" % mag_V_source)
+        #logger.debug("mag: %s" % mag_source)
     #logger.debug(impact_param_weight)
 
     # Iterate over each lens catalogue
     tau_sum_catalogue_lens = sum([get_tau_addition_term_catalogue_lens(star_catalogue_lens, dist_source)
                                   for star_catalogue_lens in star_catalogue_lens_list])
-    #logger.debug("mag: {:<20} impact_param_weight: {}".format(mag_V_source, impact_param_weight))
-    #logger.debug("function result: {}".format(calculating_impact_param.simulate_impact_param_weight(mag_V_source, precision_model=PRECISION_MODEL)))
+    #logger.debug("mag: {:<20} impact_param_weight: {}".format(mag_source, impact_param_weight))
+    #logger.debug("function result: {}".format(calculating_impact_param.simulate_impact_param_weight(mag_source, precision_model=PRECISION_MODEL)))
 
     tau_addition_term_source = impact_param_weight * tau_sum_catalogue_lens
     logger.debug("tau_addition_term_source: %s" % tau_addition_term_source)
@@ -268,11 +273,14 @@ def get_inverse_weight_addition_term_catalogue_source(star_catalogue_source):
     return inverse_weight_addition_term_source
 
 def get_inverse_weight_addition_term_source(star_source):
-    mag_V_source = float(star_source["V"])
+    if star_source.has_key("V"):
+        mag_source = float(star_source["V"])
+    elif star_source.has_key("u"):
+        mag_source = float(star_source["u"])
     # Turning debug flag on always returns a weight of 1,
     # for testing in case something is wrong with the simulated weight
     impact_param_weight = \
-        calculating_impact_param.simulate_impact_param_weight(mag_V_source,
+        calculating_impact_param.simulate_impact_param_weight(mag_source,
                                                               precision_model=PRECISION_MODEL,
                                                               debug=IMPACT_PARAM_WEIGHT_DEBUG)
 
@@ -391,8 +399,11 @@ def plot_tau_info_alt(tau_info_dict):
     plt.ylabel("tau sum after adding terms at this lens distance ({})".format(tau_addition_term_list.unit))
     plt.show()
 
-def calculate_tau():
-    #star_info_dict = reading_in_star_population.read_star_pop(STAR_POP_FILEPATH, is_csv = False)
+def calculate_tau_test():
+    star_info_dict = reading_in_star_population.read_star_pop(STAR_POP_FILEPATH, is_csv = True)
+    calculate_tau(star_info_dict)
+
+def calculate_tau(star_info_dict):
     star_info_dict = reading_in_star_population.read_star_pop(STAR_POP_FILEPATH, is_csv = True)
     star_pop = star_info_dict["star_pop"]
     if star_info_dict.has_key("coordinates_gal") and star_info_dict["coordinates_gal"] is not None:
@@ -408,7 +419,6 @@ def calculate_tau():
     logger.info("dist_source set to default value: %s" % DIST_SOURCE_DEFAULT)
     if not CALCULATE_SOLID_ANGLE:
         logger.info("solid_angle set to default value: %s" % SOLID_ANGLE_DEFAULT)
-    #error_counter = 0
     for i in xrange(len(star_pop)):
         star = star_pop[i]
         dist = float(star["Dist"]) * units.kpc
@@ -480,8 +490,8 @@ def calculate_tau():
         mass_density_bin.append(mass_density)
         logger.debug("updated mass_density_bin: %s" % mass_density_bin)
         logger.debug("tau_sum: %s" % tau_sum)
-        logger.info("")
-        logger.info("")
+        logger.debug("")
+        logger.debug("")
         #if len(star_bins) > 0:
             #logger.debug("First star bin tau value: %s" % star_bins[0]["tau_value_after_addition"])
     logger.info("Final tau_sum: %s" % tau_sum)

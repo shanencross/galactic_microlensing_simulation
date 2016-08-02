@@ -5,20 +5,21 @@ true_observation_time.py
 from astropy import units
 
 """
-def get_true_observation_time(obs_number, obs_period, night_duration, day_night_duration=24*units.h):
-    observation_time = int(obs_number * obs_period / night_duration) * day_night_duration \
-                       + ( obs_number * obs_period ) % night_duration
+def get_true_observation_time(obs_number, period, night_duration, day_night_duration=24*units.h):
+    observation_time = int(obs_number * period / night_duration) * day_night_duration \
+                       + ( obs_number * period ) % night_duration
 
     return observation_time
 """
 
-def get_true_observation_time(time, night_duration=10*units.h, day_night_duration=24*units.h):
+def get_true_observation_time(time, start_time_offset=0*units.h,
+                              night_duration=10*units.h, day_night_duration=24*units.h):
     observation_time = int(time / night_duration) * day_night_duration \
                        + time % night_duration
 
     return observation_time
 
-def get_true_observation_times(duration=154*units.h, obs_period=17.7*units.h,
+def get_true_observation_times(duration=154*units.h, period=17.7*units.h,
                           night_duration=10*units.h, day_night_duration=24*units.h):
 
     if night_duration > day_night_duration:
@@ -30,7 +31,7 @@ def get_true_observation_times(duration=154*units.h, obs_period=17.7*units.h,
     obs_number = 0
 
     while True:
-        time = get_true_observation_time(obs_number*obs_period, night_duration,
+        time = get_true_observation_time(obs_number*period, night_duration,
                                     day_night_duration)
         if time >= duration:
             break

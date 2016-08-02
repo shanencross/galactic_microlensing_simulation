@@ -15,7 +15,11 @@ from simulating_mag_error import simulate_mag_error
 from true_observation_time import get_true_observation_time
 
 LOGGER_ON = True # Enable or disable logger. Affects execution speed
-DEBUGGING_MODE = True # Turn this flag on if modifying and testing code - turn it off when actively being used
+DEBUGGING_MODE = True # Turn on if modifying and testing code - turn it off when actively being used
+
+GAUSSIAN_MAG_DEBUG = False # Turn on to consistently add one sigma error when calculating gaussian mags,
+                           # eliminating error randomization for testing, unless flag is
+                           # overriden by a parameter passed to the gaussian mag calculation function.
 
 if LOGGER_ON:
     # create and set up filepath and directory for logs -
@@ -55,10 +59,12 @@ STAR_POP_DIR = os.path.join(sys.path[0], "star_population_tables_csv")
 STAR_POP_FILENAME = "1467072296.449283_sample_1e-05.csv"
 #STAR_POP_FILENAME = "1469233189.751105_sample_0.0001.csv"
 #STAR_POP_FILENAME = "1469233189.751105_sample_1e-05.csv"
+#STAR_POP_FILENAME = "1469568862.909192_sample_0.01.csv"
+#STAR_POP_FILENAME = "1469568862.909192_sample_0.0001.csv"
 
 STAR_POP_FILEPATH = os.path.join(STAR_POP_DIR, STAR_POP_FILENAME)
 
-MAG_ERROR_THRESHOLD = 5 # Skip over data point if simulated magnitude error is larger than this
+MAG_ERROR_THRESHOLD = 1 # Skip over data point if simulated magnitude error is larger than this
 
 def key_is_missing(possible_missing_keys, star, band=None):
     for key in possible_missing_keys:
@@ -74,7 +80,7 @@ def key_is_missing(possible_missing_keys, star, band=None):
 
 def get_mag(star, band="V"):
     VBUIK_band_set = set(["V", "B", "U", "I", "K"])
-    ugirz_band_set = set(["u", "g", "i", "r", "z"])
+    ugriz_band_set = set(["u", "g", "r", "i", "z"])
 
     if band in VBUIK_band_set:
         # Check if any keys that should be in the star dictionary are missing
@@ -101,7 +107,7 @@ def get_mag(star, band="V"):
         elif band == "K":
             mag = mag_V - color_V_K
 
-    elif band in ugirz_band_set:
+    elif band in ugriz_band_set:
         # Check if any keys that should be in the star dictionary are missing
         possible_missing_keys = ["u", "u-g", "g-r", "r-i", "i-z"]
         if key_is_missing(possible_missing_keys, star, band):
@@ -159,7 +165,7 @@ def get_mags(star):
 
     return mag_dict
 
-def get_gaussian_mag_info(mag, size=None, debug=False):
+def get_gaussian_mag_info(mag, size=None, debug=GAUSSIAN_MAG_DEBUG):
     mag_error = simulate_mag_error(mag)["mag_err"]
 
     # For testing non-randomized result
@@ -194,6 +200,7 @@ def get_gaussian_star(star):
     return star_gaussian
 
 def get_gaussian_mags_alt(mag_dict):
+    """Simulate gaussian error separately for each band magnitude."""
     mag_gaussian_dict = {}
     for band in mag_dict:
         mag = mag_dict[band]
@@ -203,6 +210,9 @@ def get_gaussian_mags_alt(mag_dict):
     return mag_gaussian_dict
 
 def get_gaussian_mags(mag_dict):
+    """Simulate gaussian error from V or u magnitude and apply the same error
+    to other band magnitudes. Probaly not a preferable method.
+    """
     if mag_dict.has_key("V"):
         mag_primary = mag_dict["V"]
     elif mag_dict.has_key("u"):
@@ -234,11 +244,11 @@ def plot_gaussian_histogram(star, size=10000, bins=100, normed=True):
     plot_gaussian_histogram_from_mag(mag, size=size, bins=bins, normed=normed)
 
 def make_baseline_lightcurve(star, duration, period=17.7*units.h, night_duration=10*units.h,
-                             day_night_duration=24*units.h, band_list=None):
+                             day_night_duration=24*units.h, band_list=None, old_err_omission=False):
     """Generate periodic baseline lightcurve for a given star, with
     band cycling and tracking of overall lightcurve as well as
-    lightcurve for each band
-        """
+    lightcurve for each band.
+    """
 
     """Set up the 0 start time as either a number or an astropy Quantity
     depending on if the duration and period are astropy Quantities,
@@ -280,18 +290,24 @@ def make_baseline_lightcurve(star, duration, period=17.7*units.h, night_duration
         lightcurve_dict[mags_key] = []
         lightcurve_dict[mag_errors_key] = []
 
-    """Iterate over each time in steps equal to the period, up to the duration,
+    """Iterate over each time in steps equal to the period,
     building up time, mag, and mag error arrays for the overall lightcurve
     and the lightcurve for each band. Simultaneously iterate through the band
     list, and wrapping around to the first band when we reach its end, since we
     measure a different band for each measurement.
 
-    We also obtain a list of "true" observation times, accounting for only being
+    Also obtain a list of "true" observation times, accounting for only being
     able to observe at night. This is the time the observations would be made at
     in the real world.
 
-    The ordinary "time" here is the time assuming we could observe at any time,
+    Ordinary "time" is the time assuming we could observe at any time,
     and do so with a regular period.
+
+    If simulated one sigma error for any band is too large, that band's data
+    points are omitted.
+
+    Loop stops when the "true" observation time exceeds the period, and no
+    data point is added for that time.
 
     Assumption: Initial time 0 occurs at the start of a night.
 
@@ -300,11 +316,15 @@ def make_baseline_lightcurve(star, duration, period=17.7*units.h, night_duration
     band_index = 0
     mag_dict = get_mags(star) # Obtain non-randomized mags in all frequencies for this star
     time = time_start
-    while time < duration:
+    while True:
         # get the "true" observation time, accounting for only being to
         # observe at night
         time_true = get_true_observation_time(time, night_duration=night_duration,
                                          day_night_duration=day_night_duration)
+
+        # Loop ends when the true time exceeds the duration
+        if time_true > duration:
+            break
 
         # Simulate gaussian randomized mag for the current band
         band = band_list[band_index]
@@ -324,8 +344,16 @@ def make_baseline_lightcurve(star, duration, period=17.7*units.h, night_duration
         logger.debug("Mag after randomization: {}".format(mag_gaussian))
         logger.debug("Error of post-randomization mag: {}".format(mag_gaussian_error))
 
-        # If the error is too big, skip over this data point
-        if mag_gaussian_error >= MAG_ERROR_THRESHOLD:
+        """If the error is too big, skip over this data point.
+
+        If "old error omission flag" is on, compare simulated error
+        for gaussian randomized measurement of mag.
+
+        If the flag is off, compare simulated error of catalogue's original
+        non-randomized magnitude.
+        """
+        if (old_err_omission and mag_gaussian_error >= MAG_ERROR_THRESHOLD) or \
+           (not old_err_omission and mag_error >= MAG_ERROR_THRESHOLD):
             logger.warning("ERROR TOO LARGE")
         else:
             times_key = "times_{}".format(band)
@@ -396,7 +424,7 @@ def plot_lightcurve(lightcurve_dict, connect_all=False, show_error_bars=True,
             # Include error bars only if the flag is on.
             if show_error_bars:
                 error_bars = mag_error_list.value
-            plt.errorbar(time_list.value, mag_list.value, yerr=error_bars, fmt="ro--")
+            plt.errorbar(time_list.value, mag_list.value, yerr=error_bars, fmt="ko--")
         # If not times and mags aren't empty lists, label the plot
         plt.xlabel("time ({})".format(time_list.unit))
         plt.ylabel("magnitude ({})".format(mag_list.unit))
@@ -410,7 +438,14 @@ def plot_lightcurve(lightcurve_dict, connect_all=False, show_error_bars=True,
         band_list = lightcurve_dict["bands"]
 
     if band_list is not None:
-        color_list = ["m", "g", "b", "y", "c"]
+        # Band order: V B U I K
+        # or:         u g i r z
+
+        # sloppy way of detecting which bands to use, but will do for now
+        if not set(band_list).isdisjoint(["V", "B", "U", "I", "K"]):
+            color_list = ["y", "b", "m", "k", "r"]
+        elif not set(band_list).isdisjoint(["u", "g", "r", "i", "z"]):
+            color_list = ["b", "g", "r", "m", "k"]
         color_index = 0
         for band in band_list:
             color = color_list[color_index]
@@ -426,8 +461,7 @@ def plot_lightcurve(lightcurve_dict, connect_all=False, show_error_bars=True,
                 time_list = lightcurve_dict["true_times_{}".format(band)]
             else:
                 time_list = lightcurve_dict["times_{}".format(band)]
-            if convert_to_days:
-                time_list = time_list.to(units.d)
+
             mag_list = lightcurve_dict["mags_{}".format(band)]
             mag_error_list = lightcurve_dict["mag_{}_errs".format(band)]
 
@@ -436,6 +470,9 @@ def plot_lightcurve(lightcurve_dict, connect_all=False, show_error_bars=True,
             because the magnitude errors all exceeded the threshold.
             """
             if time_list and mag_list and mag_error_list:
+                if convert_to_days:
+                    time_list = time_list.to(units.d)
+
                 # Include error bars only if the flag is on.
                 if show_error_bars:
                     error_bars = mag_error_list.value
@@ -504,16 +541,29 @@ def testing_band_functions():
 def testing_lightcurve_functions():
     star_catalogue = read_star_pop(STAR_POP_FILEPATH, is_csv = True)
     star_pop = star_catalogue["star_pop"]
-    star = star_pop[0]
+    star_pop_segment = star_pop[0:10]
 
-    duration = 30*24 * units.h
+    field_of_vew = 9.5 * units.deg**2
+    survey_area = 18000 * units.deg**2
+    grid_space_num = survey_area / field_of_vew
+
+    visit_duration = 34 * units.s
+
+    period = (grid_space_num * visit_duration).to(units.h)
+
+    duration = 20*24 * units.h
     period = 17.7 * units.h
     night_duration = 10*units.h
 
-    baseline_lightcurve_dict = make_baseline_lightcurve(star, duration, period=period,
-                                                        night_duration=night_duration)
-    logger.debug("Magnitude error threshold: {}".format(MAG_ERROR_THRESHOLD))
-    plot_lightcurve(baseline_lightcurve_dict, connect_all=False, true_times=True, convert_to_days=True)
+    for star in star_pop_segment:
+        baseline_lightcurve_dict = make_baseline_lightcurve(star, duration, period=period,
+                                                            night_duration=night_duration,
+                                                            old_err_omission=False)
+
+        logger.debug("Magnitude error threshold: {}".format(MAG_ERROR_THRESHOLD))
+        logger.debug("GAUSSIAN_MAG_DEBUG: {}".format(GAUSSIAN_MAG_DEBUG))
+        plot_lightcurve(baseline_lightcurve_dict, connect_all=False, show_error_bars=True,
+                            true_times=True, convert_to_days=True)
 
 def main():
     if len(sys.argv) > 1:
