@@ -10,7 +10,7 @@ import pandas
 import reading_in_star_population
 
 STAR_POP_STARTING_FIELDNAME = "Dist"
-OUTPUT_DIR = "./star_population_tables_csv_temp"
+OUTPUT_DIR = "./star_population_tables_csv"
 if not os.path.exists(OUTPUT_DIR):
     os.makedirs(OUTPUT_DIR)
 
