@@ -112,8 +112,9 @@ def test_1():
     impact_min = 0.1
     duration = 30 * units.d
     period = 17.7 * units.h
+    night_duration = 10 * units.h
     einstein_time = 10 * units.d
-    time_max = 15 * units.d
+    time_max = duration / 2
 
     times = np.arange(0, duration.decompose().value, (1*units.h).decompose().value) \
             * duration.decompose().unit
@@ -127,7 +128,8 @@ def test_1():
     impact_params = [get_impact_param_from_time_term(impact_min, time_term)
                      for time_term in time_terms]
 
-    true_times = get_true_observation_times(duration=duration, period=period)
+    true_times = get_true_observation_times(duration=duration, period=period,
+                                            night_duration=night_duration)
 
     true_time_terms = units.Quantity([get_time_term(time, time_max, einstein_time)
                                       for time in true_times])
@@ -146,23 +148,6 @@ def test_1():
     time_terms = time_terms.decompose()
     true_time_terms = true_time_terms.decompose()
 
-    """"
-    print get_true_observation_times(duration=duration, period=period)
-
-    print len(times), len(true_times)
-    print times == true_times
-    #print time_terms == true_time_terms
-    print(("Time terms {} and {} are equal to " +
-          "each other: {}").format(time_terms[6], true_time_terms[6],
-                                 time_terms[6]==true_time_terms[6]))
-    print(time_terms[6] - true_time_terms[6])
-
-    #print time_terms
-    #print true_time_terms
-    print (times).to(units.h)
-    print true_times
-    """
-
     plt.title("impact_min, u_0 = {}".format(impact_min))
     plot_magnif_from_time_terms(time_terms, magnifs, fmt="--r")
     plot_magnif_from_time_terms(true_time_terms, true_magnifs, fmt="bo")
@@ -171,8 +156,8 @@ def test_1():
     plt.show()
 
     plt.title("impact_min, u_0 = {}".format(impact_min))
-    plot_magnif_from_times(times.to(units.h), magnifs, fmt="--r")
-    plot_magnif_from_times(true_times.to(units.h), true_magnifs, fmt="bo")
+    plot_magnif_from_times(times.to(units.d), magnifs, fmt="--r")
+    plot_magnif_from_times(true_times.to(units.d), true_magnifs, fmt="bo")
 
     plt.show()
 
