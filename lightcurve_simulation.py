@@ -68,7 +68,7 @@ def get_time_term(time, time_max, einstein_time):
     return time_term
 
 def plot_impact_param_from_time_terms(time_terms, impact_params, fmt="--ro"):
-    plt.xlabel("time term")
+    plt.xlabel("time term (t)")
     plt.ylabel("impact parameter, u")
     make_plot(time_terms, impact_params, fmt=fmt)
 
@@ -78,12 +78,12 @@ def plot_magnif_from_time_terms(time_terms, magnifs, fmt="--ro"):
     make_plot(time_terms, magnifs, fmt=fmt)
 
 def plot_impact_param_from_times(times, impact_params, fmt="--ro"):
-    plt.xlabel("time")
+    plt.xlabel("time ({})".format(times.unit))
     plt.ylabel("impact parameter, u")
     make_plot(times, impact_params, fmt=fmt)
 
 def plot_magnif_from_times(times, magnifs, fmt="--ro"):
-    plt.xlabel("time")
+    plt.xlabel("time ({})".format(times.unit))
     plt.ylabel("magnification")
     make_plot(times, magnifs, fmt=fmt)
 
@@ -145,6 +145,8 @@ def test_1():
 
     time_terms = time_terms.decompose()
     true_time_terms = true_time_terms.decompose()
+
+    """"
     print get_true_observation_times(duration=duration, period=period)
 
     print len(times), len(true_times)
@@ -159,13 +161,16 @@ def test_1():
     #print true_time_terms
     print (times).to(units.h)
     print true_times
+    """
 
+    plt.title("impact_min, u_0 = {}".format(impact_min))
     plot_magnif_from_time_terms(time_terms, magnifs, fmt="--r")
     plot_magnif_from_time_terms(true_time_terms, true_magnifs, fmt="bo")
     #plot_impact_param_from_time_terms(true_time_terms, true_impact_params, fmt="bo")
 
     plt.show()
 
+    plt.title("impact_min, u_0 = {}".format(impact_min))
     plot_magnif_from_times(times.to(units.h), magnifs, fmt="--r")
     plot_magnif_from_times(true_times.to(units.h), true_magnifs, fmt="bo")
 
