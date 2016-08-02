@@ -31,15 +31,19 @@ def get_true_observation_times(duration=154*units.h, period=17.7*units.h,
     obs_number = 0
 
     while True:
-        time = get_true_observation_time(obs_number*period, night_duration,
-                                    day_night_duration)
+        time_observing = obs_number * period
+        time = get_true_observation_time(time_observing,
+                                         night_duration=night_duration,
+                                         day_night_duration=day_night_duration)
+
+        print (obs_number * period), time
         if time >= duration:
             break
         else:
             time_list.append(time)
             obs_number += 1
 
-        print time, duration
+        #print time, duration
     if isinstance(duration, units.Quantity):
         time_list = units.Quantity(time_list)
 

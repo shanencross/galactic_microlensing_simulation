@@ -67,15 +67,25 @@ def get_time_term(time, time_max, einstein_time):
     time_term = (time - time_max)/einstein_time
     return time_term
 
-def plot_impact_param_from_time_terms(time_terms, impact_param, fmt="--ro"):
+def plot_impact_param_from_time_terms(time_terms, impact_params, fmt="--ro"):
     plt.xlabel("time term")
     plt.ylabel("impact parameter, u")
-    make_plot(time_terms, impact_param, fmt=fmt)
+    make_plot(time_terms, impact_params, fmt=fmt)
 
 def plot_magnif_from_time_terms(time_terms, magnifs, fmt="--ro"):
     plt.xlabel("time term")
     plt.ylabel("magnification")
     make_plot(time_terms, magnifs, fmt=fmt)
+
+def plot_impact_param_from_times(times, impact_params, fmt="--ro"):
+    plt.xlabel("time")
+    plt.ylabel("impact parameter, u")
+    make_plot(times, impact_params, fmt=fmt)
+
+def plot_magnif_from_times(times, magnifs, fmt="--ro"):
+    plt.xlabel("time")
+    plt.ylabel("magnification")
+    make_plot(times, magnifs, fmt=fmt)
 
 def make_plot(x_list, y_list, fmt="--ro"):
     plt.plot(x_list, y_list, fmt)
@@ -105,7 +115,7 @@ def test_1():
     einstein_time = 10 * units.d
     time_max = 15 * units.d
 
-    times = np.arange(0, duration.decompose().value, period.decompose().value) \
+    times = np.arange(0, duration.decompose().value, (1*units.h).decompose().value) \
             * duration.decompose().unit
 
     time_terms = units.Quantity([get_time_term(time, time_max, einstein_time)
@@ -135,10 +145,29 @@ def test_1():
 
     time_terms = time_terms.decompose()
     true_time_terms = true_time_terms.decompose()
+    print get_true_observation_times(duration=duration, period=period)
 
-    plot_magnif_from_time_terms(time_terms, magnifs, fmt="--ro")
-    #plot_magnif_from_time_terms(true_time_terms, true_magnifs, fmt="bo")
+    print len(times), len(true_times)
+    print times == true_times
+    #print time_terms == true_time_terms
+    print(("Time terms {} and {} are equal to " +
+          "each other: {}").format(time_terms[6], true_time_terms[6],
+                                 time_terms[6]==true_time_terms[6]))
+    print(time_terms[6] - true_time_terms[6])
+
+    #print time_terms
+    #print true_time_terms
+    print (times).to(units.h)
+    print true_times
+
+    plot_magnif_from_time_terms(time_terms, magnifs, fmt="--r")
+    plot_magnif_from_time_terms(true_time_terms, true_magnifs, fmt="bo")
     #plot_impact_param_from_time_terms(true_time_terms, true_impact_params, fmt="bo")
+
+    plt.show()
+
+    plot_magnif_from_times(times.to(units.h), magnifs, fmt="--r")
+    plot_magnif_from_times(true_times.to(units.h), true_magnifs, fmt="bo")
 
     plt.show()
 
