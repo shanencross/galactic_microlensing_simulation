@@ -1,5 +1,6 @@
 """
 simulating_mag_error.py
+@author Shanen Cross
 """
 
 import sys
@@ -204,7 +205,6 @@ def generate_overlapping_plots(x_label, y_label_list, x_list, y_lists_to_plot, \
         plt.xlabel(x_label)
     plt.legend(loc="upper left")
     plt.show()
-
 
 def generate_plots(x_label, y_label, x_list, y_list, style_string):
     # plot y vs x

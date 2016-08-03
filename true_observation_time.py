@@ -19,8 +19,9 @@ def get_true_observation_time(time, start_time_offset=0*units.h,
 
     return observation_time
 
-def get_true_observation_times(duration=154*units.h, period=17.7*units.h,
+def get_true_observation_times(start_time = 0*units.h, duration=154*units.h, period=17.7*units.h,
                           night_duration=10*units.h, day_night_duration=24*units.h):
+    # start_time is not working properly
 
     if night_duration > day_night_duration:
         print "WARNING: Night duration is longer than day+night parameter."
@@ -31,13 +32,13 @@ def get_true_observation_times(duration=154*units.h, period=17.7*units.h,
     obs_number = 0
 
     while True:
-        time_observing = obs_number * period
+        time_observing = obs_number * period + start_time
         time = get_true_observation_time(time_observing,
                                          night_duration=night_duration,
                                          day_night_duration=day_night_duration)
 
         print (obs_number * period), time
-        if time >= duration:
+        if time >= start_time + duration:
             break
         else:
             time_list.append(time)

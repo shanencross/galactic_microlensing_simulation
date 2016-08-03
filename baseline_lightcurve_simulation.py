@@ -166,6 +166,13 @@ def get_mags(star):
     return mag_dict
 
 def get_gaussian_mag_info(mag, size=None, debug=GAUSSIAN_MAG_DEBUG):
+    """Given magnitude, simulate sigma magnitude error and use to get a magnitude
+    randomized using the corresponding gaussian distribution.
+
+    Returns dictionary with randomized magnitude and related information (the simulated
+    sigma error of the distribution for this magnitude, and the randomized error selected
+    from the distribution).
+    """
     mag_error = simulate_mag_error(mag)["mag_err"]
 
     # For testing non-randomized result
