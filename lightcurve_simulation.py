@@ -10,13 +10,12 @@ import matplotlib.pyplot as plt
 from astropy import units
 
 import logger_setup
-
-LOGGER_ON = True
-DEBUGGING_MODE = True
-
 from true_observation_time import get_true_observation_times
 #from simulating_mag_error import simulate_mag_error
 from baseline_lightcurve_simulation import get_gaussian_mag_info
+
+LOGGER_ON = True
+DEBUGGING_MODE = True
 
 if LOGGER_ON:
     # create and set up filepath and directory for logs -
@@ -39,6 +38,14 @@ else:
     # If logger is to be disabled, create dummy logger and disable it
     logger = logging.getLogger()
     logger.disabled = True
+
+# default value constants
+IMPACT_MIN_DEFAULT = 0.1
+EINSTEIN_TIME_DEFAULT = 10 * units.d
+TIME_MAX_DEFAULT = 15 * units.d
+DURATION_DEFAULT = 2 * TIME_MAX_DEFAULT
+PERIOD_DEFAULT = 17.7 * units.h
+NIGHT_DURATION_DEFAULT = 10 * units.h
 
 def get_magnified_mag(mag, magnif):
     """
@@ -142,6 +149,36 @@ def test_0_get_magnified_mag():
     logger.info("Expected magnified magnitude: {}".format(magnified_mag))
     logger.info("Resulting magnified magnitude: {}".format(magnified_mag_result))
 
+def get_lightcurve_from_mag(mag, impact_min=IMPACT_MIN_DEFAULT, time_max=TIME_MAX_DEFAULT,
+                            einstein_time=EINSTEIN_TIME_DEFAULT, duration=DURATION_DEFAULT,
+                            period=PERIOD_DEFAULT, night_duration=NIGHT_DURATION_DEFAULT):
+    return {}
+
+def test_0_get_lightcurve_from_mag():
+    mag = 25.0
+    lightcurve = get_lightcurve_from_mag(25.0)
+    logger.info(lightcurve)
+
+def get_lightcurve(star, impact_min=IMPACT_MIN_DEFAULT, time_max=TIME_MAX_DEFAULT,
+                   einstein_time=EINSTEIN_TIME_DEFAULT, duration=DURATION_DEFAULT,
+                   period=PERIOD_DEFAULT, night_duration=NIGHT_DURATION_DEFAULT):
+    if star.has_key("V"):
+        mag = star["V"]
+    elif star.has_key("u"):
+        mag = star["u"]
+    else:
+        logger.warning("Star has no V or u band magnitude.")
+        logger.warning("Returning empty dictionary for lightcurve.")
+        return {}
+
+    lightcurve_dict = get_lightcurve_from_mag(mag)
+    return lightcurve_dict
+
+def test_0_get_lightcurve():
+    star = {"V": "25"}
+    lightcurve = get_lightcurve(star)
+    logger.info(lightcurve)
+
 def test_0():
     """Plotting magnifications with data points at regular intervals."""
     impact_min = 0.1
@@ -238,7 +275,7 @@ def test_2():
     einstein_time = 10 * units.d
     time_max = duration / 2
     baseline_mag = 25
-    start_time = 0 * units.d
+    start_time = 0 * units.d # This isn't working right now for any value but 0 days
     time_step = 1 * units.h
 
     # Acquire data points for actual light curve
@@ -329,8 +366,9 @@ def test_2():
 def run_tests():
     #test_0()
     #test_1()
-    test_2()
+    #test_2()
     #test_0_get_magnified_mag()
+    test_0_get_lightcurve_from_mag()
 
 def main():
     run_tests()
