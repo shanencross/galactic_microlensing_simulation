@@ -137,6 +137,53 @@ def plot_mag_from_times(times, mags, fmt="--ro"):
     plt.ylabel("magnitude")
     plt.plot(times, mags, fmt)
 
+def get_array(start, stop, step):
+    duration = stop - start
+    num = duration / float(step_size)
+    if num - int(num) > 0:
+        duration = (int(num) - 1)*step
+        stop = start + duration
+    return np.linspace(start, stop, num)
+
+def get_lightcurves(star, time_i, time_f, time_max_step, impact_min_i, impact_min_f,
+                    impact_min_step, einstein_time_i, einstein_time_f,
+                    einstein_time_step, period=PERIOD_DEFAULT,
+                    night_duration=NIGHT_DURATION_DEFAULT):
+    time_unit = units.d
+
+    duration = time_f - time_i
+
+    time_i_val = time_i.to(time_unit).value
+    time_f_val = time_f.to(time_unit).value
+    time_max_step_val = time_max_step.to(time_unit).value
+
+    einstein_time_i_val = einstein_time_i.to(time_unit).value
+    einstein_time_f_val = einstein_time_f.to(time_unit).value
+    einstein_time_step_val = einstein_time_step.to(time_unit).value
+
+    impact_mins = np.arange(impact_min_i, impact_min_f, impact_min_step)
+    einstein_time_vals = np.arange(einstein_time_i_val, einstein_time_f_val, einstein_time_step_val)
+
+    lightcurves = []
+    for impact_min in impact_mins:
+        logger.debug("impact_min: {}".format(impact_min))
+        for einstein_time_val in einstein_time_vals:
+            einstein_time = einstein_time_val * time_unit
+            logger.debug("      einstein_time: {}".format(einstein_time))
+            time_max_i_val = time_i_val - einstein_time_val
+            time_max_f_val = time_f_val + einstein_time_val
+
+            time_max_vals = np.arange(time_max_i_val, time_max_f_val, time_max_step_val)
+
+            for time_max_val in time_max_vals:
+                time_max = time_max_val * time_unit
+                #logger.debug("              time_max: {}".format(time_max))
+                lightcurve = get_lightcurve(star, impact_min, time_max, einstein_time,
+                                            duration, period, night_duration)
+                lightcurves.append(lightcurve)
+
+    return lightcurves
+
 def get_lightcurve_from_mag(mag, impact_min=IMPACT_MIN_DEFAULT, time_max=TIME_MAX_DEFAULT,
                             einstein_time=EINSTEIN_TIME_DEFAULT, duration=DURATION_DEFAULT,
                             period=PERIOD_DEFAULT, night_duration=NIGHT_DURATION_DEFAULT):
