@@ -55,7 +55,6 @@ class Lightcurve_data():
         self.bands = self._init_bands(bands)
 
         self.lightcurve_data = self._init_lightcurve_data()
-        #print self.lightcurve_data["V"].event_curve.times
 
         """
         # As well as the information for the generated lightcurve measurements:
@@ -106,7 +105,6 @@ class Lightcurve_data():
 
     def _init_lightcurve_data(self):
         lightcurve_data = dict((band, self._get_lightcurves(band)) for band in self.bands)
-        #print lightcurve_data["V"].event_curve.times
         return lightcurve_data
 
     def _get_lightcurves(self, band):
@@ -114,8 +112,6 @@ class Lightcurve_data():
                                                self._get_event_curve(band),
                                                self._get_event_measurements(band),
                                                band=band)
-
-        #print lightcurves.event_curve.times
         return lightcurves
 
     def _get_baseline_measurements(self, band):
@@ -139,13 +135,17 @@ class Lightcurve_data():
         event_measurements = Lightcurve(None, None, mag_errors=None, band=band)
         return event_measurements
 
-    def plot_event_curve(self, band, fmt="--k"):
-        plt.title("band: {:>5} u0: {:>5} t_E: {:>5} t_max: {:>5}".format(band,
-                                                                         self.impact_min,
-                                                                         self.einstein_time,
-                                                                         self.time_max))
-        #print self.lightcurve_data["V"].event_curve.times
+    def plot_event_curve(self, band, fmt="--r"):
+        plt.title("band: {}     u0: {}    t_E: {}     t_max: {}".format(band,
+                                                                        self.impact_min,
+                                                                        self.einstein_time,
+                                                                        self.time_max))
         self.lightcurve_data[band].event_curve.plot(fmt=fmt, set_title=False)
+
+    @staticmethod
+    def display_plots():
+        plt.gca().invert_yaxis()
+        plt.show()
 
 class Lightcurve_collection():
     def __init__(self, baseline_measurements, event_curve, event_measurements,
@@ -164,17 +164,16 @@ class Lightcurve():
     def plot(self, fmt="--ro", set_title=True):
         if set_title:
             plt.title("band: {}".format(self.band))
-        plt.xlabel("time ()".format(self.times.unit))
+        plt.xlabel("time ({})".format(self.times.unit))
         plt.ylabel("magnitude")
         plt.errorbar(self.times, self.mags, yerr=self.mag_errors, fmt=fmt)
 
 def test_Lightcurve_data():
-    lightcurve_data = Lightcurve_data({"V": 25})
+    lightcurve_data = Lightcurve_data(mags={"V": 25}, einstein_time=1*units.d, time_max=25*units.d)
     lightcurve_data.plot_event_curve("V")
-    plt.gca().invert_yaxis()
-    plt.show()
-    #print lightcurve_data.lightcurve_data["V"].event_curve.times
-    #print lightcurve_data.lightcurve_data["V"].event_measurements.times
+    Lightcurve_data.display_plots()
+    lightcurve_data.lightcurve_data["V"].event_curve.plot()
+    Lightcurve_data.display_plots()
 
 def main():
     test_Lightcurve_data()
