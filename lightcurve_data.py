@@ -6,6 +6,8 @@ Purpose: Class representing lightcurve and associated information
 import numpy as np
 import matplotlib.pyplot as plt
 from astropy import units
+from astropy.io import fits
+
 from simulating_mag_error import simulate_mag_error
 from lightcurve_simulation import get_magnified_mag
 from true_observation_time import get_true_observation_time
@@ -36,7 +38,7 @@ class Lightcurve_data():
                 duration=DURATION_DEFAULT, period=PERIOD_DEFAULT,
                 night_duration=NIGHT_DURATION_DEFAULT,
                 start_time=START_TIME_DEFAULT, time_step=TIME_STEP_DEFAULT,
-                time_unit=TIME_UNIT_DEFAULT):
+                time_unit=TIME_UNIT_DEFAULT, instance_count=1):
         self.time_unit = time_unit
         self.star = star
         self.mags = self._init_mags(mags)
@@ -52,8 +54,8 @@ class Lightcurve_data():
         self.night_duration = night_duration.to(self.time_unit)    # length of time that night lasts; should not exceed day_night_duration
         self.day_duration = self.day_night_duration - self.night_duration   # calculated from day_night_duration - night_duration
         self.start_time = start_time.to(self.time_unit) # Amount of observing time (i.e. night time -- NOT total time) before first measurement is taken;
-                                     # Values should be 0 or positive; negative values may not work as intended/expected;
-                                     # note that time 0 is always the beginning of a night
+                                                        # Values should be 0 or positive; negative values may not work as intended/expected;
+                                                        # note that time 0 is always the beginning of a night
         """
         self.night_start_time = night_start_time    # how long after time 0 night begins, ranging from
                                                     # -night_duration to +day_duration
@@ -63,25 +65,15 @@ class Lightcurve_data():
 
         self.bands = self._init_bands(bands)
 
-        self.lightcurve_data = self._init_lightcurve_data()
+        self.theoret_event_curves = self._init_theoret_event_curves()
 
-        """
-        # As well as the information for the generated lightcurve measurements:
-        observing_time_measurements # necessary? Time spent observing (i.e. nighttime)
-        time_measurements
-        mags_measurements
-        mag_measurement_errors
+        self.lightcurve_data_instances = self._init_lightcurve_data_instances(instance_count)
 
-        # And information for the "actual" lightcurve being measured:
-        times
-        mags
+    def _init_theoret_event_curves(self):
+        theoret_event_curves = dict((band, self._get_event_curve(band)) for
+                                     band in self.bands)
 
-        # Also information for the corresponding baseline lightcurve:
-        observing_time_measurements # necessary? Time spent observing (i.e. nighttime)
-        time_measurements
-        mag_measurements
-        mag_error_measurements
-        """
+        return theoret_event_curves
 
     def _init_mags(self, mags):
         if self.star is not None:
@@ -112,14 +104,20 @@ class Lightcurve_data():
                             for band in self.mags)
         return sigma_errors
 
+    def _init_lightcurve_data_instances(self, instance_count):
+        lightcurve_data_instances = [self._init_lightcurve_data() for i in
+                                     xrange(instance_count)]
+        return lightcurve_data_instances
+
     def _init_lightcurve_data(self):
-        lightcurve_data = dict((self.bands[band_index], self._get_lightcurves(band_index)) for band_index in xrange(len(self.bands)))
+        lightcurve_data = dict((self.bands[band_index], self._get_lightcurves(band_index))
+                               for band_index in xrange(len(self.bands)))
         return lightcurve_data
 
     def _get_lightcurves(self, band_index):
         band = self.bands[band_index]
         lightcurves = Lightcurve_collection(self._get_baseline_measurements(band_index),
-                                               self._get_event_curve(band_index),
+                                               #self._get_event_curve(band_index),
                                                self._get_event_measurements(band_index),
                                                band=band)
         return lightcurves
@@ -129,10 +127,10 @@ class Lightcurve_data():
 
         return baseline_measurements
 
-    def _get_event_curve(self, band_index):
+    def _get_event_curve(self, band):
         duration_val = self.duration.to(self.time_unit).value
         time_step_val = self.time_step.to(self.time_unit).value
-        band = self.bands[band_index]
+        #band = self.bands[band_index]
         mag = self.mags[band]
 
         times = np.arange(0, duration_val, time_step_val) * self.time_unit
@@ -217,27 +215,46 @@ class Lightcurve_data():
         self.plot_baseline_measurements(band)
         self.plot_event_measurements(band)
 
+    def plot_baseline(self, band, fmt=None):
+        if fmt is None:
+            plot_color = BAND_PLOT_COLOR_DICT[band]
+            fmt = plot_color + "-"
+
+        start_time_val = 0
+        duration_val = self.duration.to(self.time_unit).value
+        mag = self.mags[band]
+
+        times = (start_time_val, duration_val)
+        mags = (mag, mag)
+
+        self._set_plot_title(band)
+        plt.plot(times, mags, fmt)
+
     def plot_event_curve(self, band, fmt=None):
         if fmt is None:
             plot_color = BAND_PLOT_COLOR_DICT[band]
             fmt = plot_color + "--"
 
         self._set_plot_title(band)
-        self.lightcurve_data[band].event_curve.plot(fmt=fmt, set_title=False)
+        #lightcurve_data = self.lightcurve_data_instances[instance]
+        #lightcurve_data[band].event_curve.plot(fmt=fmt, set_title=False)
+        self.theoret_event_curves[band].plot(fmt=fmt, set_title=False)
 
-    def plot_baseline_measurements(self, band, fmt=None):
+    def plot_baseline_measurements(self, band, fmt=None, instance=0):
         if fmt is None:
             plot_color = BAND_PLOT_COLOR_DICT[band]
             fmt = plot_color + "^"
         self._set_plot_title(band)
-        self.lightcurve_data[band].baseline_measurements.plot(fmt=fmt, set_title=False)
+        lightcurve_data = self.lightcurve_data_instances[instance]
+        lightcurve_data[band].baseline_measurements.plot(fmt=fmt, set_title=False)
 
-    def plot_event_measurements(self, band, fmt=None):
+    def plot_event_measurements(self, band, fmt=None, instance=0):
         if fmt is None:
             plot_color = BAND_PLOT_COLOR_DICT[band]
             fmt = plot_color + "o"
         self._set_plot_title(band)
-        self.lightcurve_data[band].event_measurements.plot(fmt=fmt, set_title=False)
+        lightcurve_data = self.lightcurve_data_instances[instance]
+        lightcurve_data[band].event_measurements.plot(fmt=fmt, set_title=False)
 
     @staticmethod
     def display_plots():
@@ -245,8 +262,8 @@ class Lightcurve_data():
         plt.show()
 
 class Lightcurve_collection():
-    def __init__(self, baseline_measurements, event_curve, event_measurements,
-                 band=None):
+    def __init__(self, baseline_measurements, event_measurements,
+                 event_curve=None, band=None):
         self.baseline_measurements = baseline_measurements
         self.event_curve = event_curve
         self.event_measurements = event_measurements
@@ -275,11 +292,11 @@ class Lightcurve():
 
 def test_Lightcurve_data():
     lightcurve_data = Lightcurve_data(mags={"V": 25, "B": 20, "U": 22, "I": 23, "K": 28}, einstein_time=3*units.d,
-                                      time_max=5 * units.d, duration=5*units.d, period=17.7 / 5* units.h,
+                                      time_max=5 * units.d, duration=10*units.d, period=17.7 / 5* units.h,
                                       time_unit=units.d)
 
-    """
     for band in lightcurve_data.bands:
+        lightcurve_data.plot_baseline(band)
         lightcurve_data.plot_event_curve(band)
         lightcurve_data.plot_baseline_measurements(band)
         lightcurve_data.plot_event_measurements(band)
@@ -287,11 +304,8 @@ def test_Lightcurve_data():
     print lightcurve_data.duration
     for band in lightcurve_data.bands:
         print band + ":", BAND_PLOT_COLOR_DICT[band]
-    """
 
-    lightcurve_data.plot_event_curve("V")
-    li
-
+    #lightcurve_data.plot_event_curve("V")
     Lightcurve_data.display_plots()
 
 def main():
