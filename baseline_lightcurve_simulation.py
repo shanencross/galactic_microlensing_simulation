@@ -71,9 +71,9 @@ def key_is_missing(possible_missing_keys, star, band=None):
         if not star.has_key(key):
             if band is not None:
                 logger.warning("Despite request for mag in band {},".format(band))
-                logger.warning("star dictionary has no {} key.".format(missing_key))
+                logger.warning("star dictionary has no {} key.".format(key))
             else:
-                logger.warning("Star dictionary has no {} key.".format(missing_key))
+                logger.warning("star dictionary has no {} key.".format(key))
             logger.warning("Star: {}".format(star))
             return True
     return False
@@ -84,52 +84,65 @@ def get_mag(star, band="V"):
 
     if band in VBUIK_band_set:
         # Check if any keys that should be in the star dictionary are missing
-        possible_missing_keys = ["V", "B-V", "U-B", "V-I", "V-K"]
-        if key_is_missing(possible_missing_keys, star, band):
-            logger.warning("Returning None value for magnitude")
-            return None
+        color_keys = ["B-V", "U-B", "V-I", "V-K"]
+        V_key_missing = key_is_missing(["V"], star, band)
+        color_keys_missing = key_is_missing(color_keys, star, band)
+        if V_key_missing:
+            if band=="V" or color_keys_missing:
+                logger.warning("Returning None value for magnitude")
+                return None
 
         #print star["V"]
         mag_V = float(star["V"])
-        color_B_V = float(star["B-V"])
-        color_U_B = float(star["U-B"])
-        color_V_I = float(star["V-I"])
-        color_V_K = float(star["V-K"])
+        if not color_keys_missing:
+            color_B_V = float(star["B-V"])
+            color_U_B = float(star["U-B"])
+            color_V_I = float(star["V-I"])
+            color_V_K = float(star["V-K"])
 
         if band == "V":
             mag = mag_V
-        elif band == "B":
-            mag = mag_V + color_B_V
-        elif band == "U":
-            mag = mag_V + color_B_V + color_U_B
-        elif band == "I":
-            mag = mag_V - color_V_I
-        elif band == "K":
-            mag = mag_V - color_V_K
-
-    elif band in ugriz_band_set:
-        # Check if any keys that should be in the star dictionary are missing
-        possible_missing_keys = ["u", "u-g", "g-r", "r-i", "i-z"]
-        if key_is_missing(possible_missing_keys, star, band):
+        elif not color_keys_missing:
+            if band == "B":
+                mag = mag_V + color_B_V
+            elif band == "U":
+                mag = mag_V + color_B_V + color_U_B
+            elif band == "I":
+                mag = mag_V - color_V_I
+            elif band == "K":
+                mag = mag_V - color_V_K
+        else:
             logger.warning("Returning None value for magnitude")
             return None
 
+    elif band in ugriz_band_set:
+        # Check if any keys that should be in the star dictionary are missing
+        color_keys = ["u", "u-g", "g-r", "r-i", "i-z"]
+        u_key_missing = key_is_missing(["u"], star, band)
+        color_keys_missing = key_is_missing(color_keys, star, band)
+        if u_key_missing:
+            if band == "u" or color_keys_missing:
+                logger.warning("Returning None value for magnitude")
+                return None
+
         mag_u = float(star["u"])
-        color_u_g = float(star["u-g"])
-        color_g_r = float(star["g-r"])
-        color_r_i = float(star["r-i"])
-        color_i_z = float(star["i-z"])
+        if not color_keys_missing:
+            color_u_g = float(star["u-g"])
+            color_g_r = float(star["g-r"])
+            color_r_i = float(star["r-i"])
+            color_i_z = float(star["i-z"])
 
         if band == "u":
             mag = mag_u
-        elif band == "g":
-            mag = mag_u - color_u_g
-        elif band == "r":
-            mag = mag_u - color_u_g - color_g_r
-        elif band == "i":
-            mag = mag_u - color_u_g - color_g_r - color_r_i
-        elif band == "z":
-            mag = mag_u - color_u_g - color_g_r - color_r_i - color_i_z
+        elif not color_keys_missing:
+            if band == "g":
+                mag = mag_u - color_u_g
+            elif band == "r":
+                mag = mag_u - color_u_g - color_g_r
+            elif band == "i":
+                mag = mag_u - color_u_g - color_g_r - color_r_i
+            elif band == "z":
+                mag = mag_u - color_u_g - color_g_r - color_r_i - color_i_z
 
     else:
         logger.warning("The star dictionary has the key {},")
@@ -141,27 +154,19 @@ def get_mag(star, band="V"):
 
 def get_mags(star):
     if star.has_key("V"):
-        mag_V = get_mag(star, band="V")
-        mag_B = get_mag(star, band="B")
-        mag_U = get_mag(star, band="U")
-        mag_I = get_mag(star, band="I")
-        mag_K = get_mag(star, band="K")
-
-        mag_dict = {"V": mag_V, "B": mag_B, "U": mag_U, "I": mag_I, "K": mag_K}
-
+        band_list = ["V", "B", "U", "I", "K"]
     elif star.has_key("u"):
-        mag_u = get_mag(star, band="u")
-        mag_g = get_mag(star, band="g")
-        mag_r = get_mag(star, band="r")
-        mag_i = get_mag(star, band="i")
-        mag_z = get_mag(star, band="z")
-
-        mag_dict = {"u": mag_u, "g": mag_g, "r": mag_r, "i": mag_i, "z": mag_z}
-
+        band_list = ["u", "g", "r", "i", "z"]
     else:
         logger.warning("Star has no V or u band magnitudes. Returning empty mag dict.")
         logger.warning("Star: {}".format(star))
-        mag_dict = {}
+        return {}
+
+    mag_dict = {}
+    for band in band_list:
+        mag = get_mag(star, band=band)
+        if mag is not None:
+            mag_dict[band] = mag
 
     return mag_dict
 
