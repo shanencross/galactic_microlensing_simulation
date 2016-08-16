@@ -207,7 +207,6 @@ class Lightcurve_data():
         #print
         return measurements
 
-
     def _set_plot_title(self, band):
         plt.title("band: {}     u0: {}    t_E: {}     t_max: {}".format(band,
                                                                         self.impact_min,
@@ -278,6 +277,39 @@ class Lightcurve_data():
                 self.plot_event_curve(band, instance=instance,
                                       error_bars=error_bars)
 
+    def get_curve_data(self, instance=0, band="V", curve_type="event"):
+        """Return dictionary of times and magnitudes, plus magnitude errors and
+        band (if applicable) for lightcurve from a given instance, band, and
+        type of curve (baseline, event, or theoretical event)
+        """
+        if curve_type == "theoret_event":
+            curve = theoret_event_curves[band]
+        else:
+            curve_instance = self.lightcurve_data_instances[instance]
+            curve_collection = curve_instance[band]
+            if curve_type == "event":
+                curve = curve_collection.event_curve
+            elif curve_type == "baseline":
+                curve = curve_collection.baseline_curve
+            else:
+                print("Warning: Requested even type {} is not valid.".format(curve_type))
+                print("Returning empty dictionary for curve data.")
+                return {}
+
+        curve_data = curve.get_curve_data()
+        return curve_data
+
+    def get_generation_params(self):
+        """Return parameters used to generate lightcurves within class."""
+
+        generation_param_dict = {"einstein_time": self.einstein_time, "impact_min": self.impact_min,
+                                 "time_max": time_max, "duration": self.duration, "period": self.period,
+                                 "bands": self.bands, "night_duration": self.night_duration,
+                                 "day_night_duration": self.day_night_duration, "day_duration": self.day_duration,
+                                 "start_time": self.start_time, "time_step": self.time_step,
+                                 "star": self.star, "mags": self.mags, "time_unit": self.time_unit}
+        return generation_param_dict
+
     @staticmethod
     def display_plots():
         plt.gca().invert_yaxis()
@@ -289,6 +321,7 @@ class Lightcurve_collection():
         self.baseline_curve = baseline_curve
         self.theoret_event_curve = theoret_event_curve
         self.event_curve = event_curve
+        self.band = band
 
 class Lightcurve():
     def __init__(self, times, mags, mag_errors=None, band=None):
@@ -311,6 +344,18 @@ class Lightcurve():
             mag_errors = None
 
         plt.errorbar(times, mags, yerr=mag_errors, fmt=fmt)
+
+    def get_curve_data(self):
+        """Return dictionary of times, magnitudes, plus magnitude errors and
+        and band (if applicable.
+        """
+        curve_dict = {"times": self.times, "mags": self.mags}
+        if self.mag_errors is not None:
+            curve_dict["mag_errors"] = self.mag_errors
+        if self.band is not None:
+            curve_dict["band"] = self.band
+
+        return curve_dict
 
 def test_Lightcurve_data():
     instance_count = 25
@@ -337,6 +382,10 @@ def test_Lightcurve_data():
     print lightcurve_data.mags
     print lightcurve_data.bands
     #lightcurve_data.plot_theoret_event_curve("V")
+
+    data = lightcurve_data.get_curve_data(instance=0, band="K")
+    print("Data: {}".format(data))
+
     Lightcurve_data.display_plots()
 
 def main():
