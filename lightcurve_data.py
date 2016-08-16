@@ -34,14 +34,21 @@ COLOR_BANDS = set(["B-V", "U-B", "V-I", "V-K"])
 BAND_PLOT_COLOR_DICT = {"V": "y", "B": "b", "U": "m", "I": "k", "K": "r",
                         "u": "b", "g": "g", "r": "r", "i": "m", "z": "k"}
 
+MAG_ERROR_THRESHOLD = 1
+
 class Lightcurve_data():
     def __init__(self, star=None, mags=None, bands=None, impact_min=IMPACT_MIN_DEFAULT,
                 einstein_time=EINSTEIN_TIME_DEFAULT, time_max = TIME_MAX_DEFAULT,
                 duration=DURATION_DEFAULT, period=PERIOD_DEFAULT,
                 night_duration=NIGHT_DURATION_DEFAULT,
                 start_time=START_TIME_DEFAULT, time_step=TIME_STEP_DEFAULT,
-                time_unit=TIME_UNIT_DEFAULT, instance_count=1):
-        self.time_unit = time_unit
+                time_unit=TIME_UNIT_DEFAULT, instance_count=1,
+                error_threshold_check=True, gaussian_error_threshold=False):
+        self.time_unit = time_unit # Standardized unit of time for data to avoid confusion
+        self.error_threshold_check = error_threshold_check # Whether we omit each data point whose non-randomized
+                                                           # theoretical magnitude error exceeds a given threshold
+        self.gaussian_error_threshold = gaussian_error_threshold # If on, compare randomized error instead of sigma error to threshold
+
         self.star = star
         self.mags = self._init_mags(mags)
 
@@ -127,7 +134,7 @@ class Lightcurve_data():
         return lightcurves
 
     def _get_baseline_curve(self, band_index):
-        baseline_curve = self._get_measurements(band_index, get_baseline=True)
+        baseline_curve = self._get_measured_curve(band_index, get_baseline=True)
 
         return baseline_curve
 
@@ -146,10 +153,10 @@ class Lightcurve_data():
         return theoret_event_curve
 
     def _get_event_curve(self, band_index):
-        event_curve = self._get_measurements(band_index, get_baseline=False)
+        event_curve = self._get_measured_curve(band_index, get_baseline=False)
         return event_curve
 
-    def _get_measurements(self, band_index, get_baseline=False):
+    def _get_measured_curve(self, band_index, get_baseline=False):
         band_period = (self.period * len(self.bands)).to(self.time_unit)
         band_start_time = ((self.period * band_index) + self.start_time).to(self.time_unit)
         band = self.bands[band_index]
@@ -159,6 +166,7 @@ class Lightcurve_data():
         true_times = []
         gaussian_mags = []
         gaussian_mag_errors = []
+        mag_sigma_errors = []
         while True:
             true_time = get_true_observation_time(time_observing, start_time=band_start_time,
                                                   night_duration=self.night_duration,
@@ -178,17 +186,29 @@ class Lightcurve_data():
 
             gaussian_mag_info = get_gaussian_mag_info(mag, debug=False)
             gaussian_mag = gaussian_mag_info["gaussian_mag"]
-            mag_sigma_error = gaussian_mag_info["mag_err"]
             gaussian_mag_error = gaussian_mag_info["gaussian_mag_err"]
+            mag_sigma_error = gaussian_mag_info["mag_err"]
             """
             if mag_sigma_error >= MAG_ERROR_THRESHOLD:
                 print("Warning: sigma error {} for magnitude {} exceeds threshold {}".format(
                       mag_sigma_error, mag, MAG_ERROR_THRESHOLD))
                 print("Omitting this data point, where (true) time")
             """
-            true_times.append(true_time)
-            gaussian_mags.append(gaussian_mag)
-            gaussian_mag_errors.append(gaussian_mag_error)
+
+            """If we are checking against the error treshold, omit data point if
+            the one-sigma magnitude error exceeds the threshold
+            """
+
+            if self.gaussian_error_threshold:
+                comparison_mag_error = gaussian_mag_error
+            else:
+                comparison_mag_error = mag_sigma_error
+
+            if not self.error_threshold_check \
+                or (self.error_threshold_check and comparison_mag_error < MAG_ERROR_THRESHOLD):
+                true_times.append(true_time)
+                gaussian_mags.append(gaussian_mag)
+                gaussian_mag_errors.append(gaussian_mag_error)
 
             time_observing += band_period
 
@@ -200,12 +220,12 @@ class Lightcurve_data():
         if gaussian_mag_errors:
             gaussian_mag_errors = units.Quantity(gaussian_mag_errors)
 
-        measurements = Lightcurve(true_times, gaussian_mags,
-                                           mag_errors=gaussian_mag_errors, band=band)
+        measured_curve = Lightcurve(true_times, gaussian_mags,
+                                    mag_errors=gaussian_mag_errors, band=band)
         #print band
         #print measurements.times
         #print
-        return measurements
+        return measured_curve
 
     def _set_plot_title(self, band):
         plt.title("band: {}     u0: {}    t_E: {}     t_max: {}".format(band,
@@ -331,6 +351,11 @@ class Lightcurve():
         self.band = band
 
     def plot(self, fmt="--ro", set_title=True, error_bars=True):
+        if not self.times or not self.mags:
+            print("Warning: Time or magnitude lists, or both, empty.")
+            print("Cannot plot band {}".format(self.band))
+            return
+
         if set_title:
             plt.title("band: {}".format(self.band))
         plt.xlabel("time ({})".format(self.times.unit))
@@ -358,7 +383,7 @@ class Lightcurve():
         return curve_dict
 
 def test_Lightcurve_data():
-    instance_count = 25
+    instance_count = 1
     #star = {"V": 25, "B": 20, "U": 22, "I": 23, "K": 28}
 
     #star_values = [2.218, 1.8, 3.377, 6.737, 25.116]
@@ -369,9 +394,10 @@ def test_Lightcurve_data():
 
     lightcurve_data = Lightcurve_data(star=star, einstein_time=3*units.d,
                                       time_max=5 * units.d, duration=10*units.d, period=17.7 / 5* units.h,
-                                      time_unit=units.d, instance_count=instance_count)
+                                      time_unit=units.d, instance_count=instance_count,
+                                      error_threshold_check=True, gaussian_error_threshold=False)
 
-    lightcurve_data.plot_all(error_bars=False)
+    lightcurve_data.plot_all(error_bars=True)
 
     print lightcurve_data.duration
     for band in lightcurve_data.bands:

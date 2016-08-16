@@ -12,15 +12,18 @@ def main():
     #rewrite_fits_file()
     #open_fits_file()
 
-    curve_data = Lightcurve_data(mags={"V":25, "B":24})
-    curve_data.plot_all()
+    lightcurve_data = Lightcurve_data(mags={"V":25, "B":24})
+    #lightcurve_data.plot_all()
+    """
     for band in curve_data.bands:
         print curve_data.get_curve_data(band=band, curve_type="baseline")
         print
+    """
 
 
-    make_fits_table_file(curve_data)
-    #curve_data.display_plots()
+    data = make_fits_table_file(lightcurve_data)
+    return data
+    #lightcurve_data.display_plots()
 
     pass
 
@@ -44,10 +47,21 @@ def rewrite_fits_file():
     hdulist.writeto("new.fits")
     hdulist.close()
 
-def make_fits_table_file(curve_data):
+def make_fits_table_file(lightcurve_data):
 
+    curve_data = lightcurve_data.get_curve_data(band="V", curve_type="event")
+
+    times = curve_data["times"].value
+    mags = curve_data["mags"].value
+    mag_errors = curve_data["mag_errors"].value
+
+    """
     a1 = np.array(["NGC1001", "NGC1002", "NGC1003"])
     a2 = np.array([11.1, 12.3, 15.2])
+    """
+
+    a1 = times
+    a2 = mags
 
     col1 = fits.Column(name="target", format="20A", array=a1)
     col2 = fits.Column(name="V_mag", format="E", array=a2)
@@ -59,7 +73,7 @@ def make_fits_table_file(curve_data):
     hdulist[0].header["t_E"] = 15.0
     hdulist[0].header["u_0"] = 0.1
 
-    the_data = hdulist[0].data
+    return hdulist[0].data
 
     #print cols.info()
     #print hdulist[0].columns.info()
