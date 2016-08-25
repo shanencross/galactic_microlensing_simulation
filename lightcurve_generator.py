@@ -303,7 +303,7 @@ class Lightcurve_generator():
         type of curve (baseline, event, or theoretical event)
         """
         if curve_type == "theoret_event":
-            curve = theoret_event_curves[band]
+            curve = self.theoret_event_curves[band]
         else:
             curve_instance = self.lightcurve_data_instances[instance]
             curve_collection = curve_instance[band]

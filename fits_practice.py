@@ -21,7 +21,7 @@ def main():
         print
     """
 
-    hdulist = make_fits_table_file(lightcurve_generator)
+    hdulist = make_hdulist(lightcurve_generator)
     return hdulist
     #lightcurve_generator.display_plots()
 
@@ -65,39 +65,53 @@ def make_primary_hdu(lightcurver_generator):
 
     return primary_hdu
 
-def make_fits_table_file(lightcurve_generator):
+def make_table_hdu(lightcurve_generator, band="V", curve_type="event"):
+    curve_data = lightcurve_generator.get_curve_data(band=band, curve_type=curve_type)
+
+    times = curve_data["times"].value
+    mags = curve_data["mags"].value
+
+    col1 = fits.Column(name="times", format="20A", array=times)
+    col2 = fits.Column(name="mags", format="E", array=mags)
+    col_list = [col1, col2]
+
+    if curve_data.has_key("mag_errors"):
+        mag_errors = curve_data["mag_errors"].value
+        col3 = fits.Column(name="mag_errors", format="E", array=mag_errors)
+        col_list.append(col3)
+
+    cols = fits.ColDefs(col_list)
+    table_hdu = fits.BinTableHDU.from_columns(cols)
+
+    hdu_name = band + "_" + curve_type
+    table_hdu.update_ext_name(hdu_name)
+
+    return table_hdu
+
+def make_hdulist(lightcurve_generator):
     primary_hdu = make_primary_hdu(lightcurve_generator)
 
     hdulist = fits.HDUList([primary_hdu])
     #for band in lightcurve_generator.bands:
 
-    curve_data = lightcurve_generator.get_curve_data(band="V", curve_type="event")
+    curve_types=["theoret_event", "event", "baseline"]
+    for band in lightcurve_generator.bands:
+        for curve_type in curve_types:
+            table_hdu = make_table_hdu(lightcurve_generator, band=band,
+                                       curve_type=curve_type)
+            hdulist.append(table_hdu)
 
-    times = curve_data["times"].value
-    mags = curve_data["mags"].value
-    mag_errors = curve_data["mag_errors"].value
-    #print len(times), len(mags), len(mag_errors)
-
-    col1 = fits.Column(name="times", format="20A", array=times)
-    col2 = fits.Column(name="mags", format="E", array=mags)
-    col3 = fits.Column(name="mag_errors", format="E", array=mag_errors)
-
-    cols = fits.ColDefs([col1, col2, col3])
-    table_hdu = fits.BinTableHDU.from_columns(cols)
-    table_hdu.update_ext_name("mag_V")
-    hdulist.append(table_hdu)
-
-    print hdulist[0].name
-    print hdulist[1].name
-    print "Einstein time: {}".format(hdulist[0].header["einstein_time"])
-    print repr(hdulist[1].header)
+    for hdu in hdulist:
+        print hdu.name
+    #print "Einstein time: {}".format(hdulist[0].header["einstein_time"])
+    #print repr(hdulist[1].header)
 
     """
     hdulist[0].header["t_E"] = 15.0
     hdulist[0].header["u_0"] = 0.1
     """
 
-    print repr(hdulist[1].data)
+    #print repr(hdulist[1].data)
 
     #print cols.info()
     #print hdulist[0].columns.info()
