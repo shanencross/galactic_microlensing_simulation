@@ -21,7 +21,7 @@ def main():
         print
     """
 
-    hdulist = make_hdulist(lightcurve_generator)
+    hdulist = make_hdulist(lightcurve_generator, use_epoch_cols=False)
     return hdulist
     #lightcurve_generator.display_plots()
 
@@ -81,6 +81,10 @@ def make_table_hdu(lightcurve_generator, instance_count=1, band="V",
     for instance in xrange(instance_count):
         curve_data = lightcurve_generator.get_curve_data(instance=instance, band=band,
                                                          curve_type=curve_type)
+        if use_epoch_cols:
+            col_list_extension = convert_to_epoch_columns(curve_data)
+            col_list.extend(col_list_extension)
+            continue
 
         times = curve_data["times"].value
         mags = curve_data["mags"].value
@@ -131,7 +135,7 @@ def convert_to_epoch_columns(curve_data):
     epoch_count = len(times) # should error check that lens of times, mags, and
                              # mag_errors are the same
     for i in xrange(epoch_count):
-        if mag_errors:
+        if mag_errors is not None:
             epoch_arr = [times[i], mags[i], mag_errors[i]]
         else:
             epoch_arr = [times[i], mags[i]]
@@ -139,11 +143,9 @@ def convert_to_epoch_columns(curve_data):
         epoch_col = fits.Column(name="epoch_" + str(i), format="E", array=epoch_arr)
         epoch_col_list.append(epoch_col)
 
-    epoch_cols = fits.ColDefs(epoch_col_list)
+    return epoch_col_list
 
-    return epoch_cols
-
-def make_hdulist(lightcurve_generator):
+def make_hdulist(lightcurve_generator, use_epoch_cols=False):
     primary_hdu = make_primary_hdu(lightcurve_generator)
 
     hdulist = fits.HDUList([primary_hdu])
@@ -155,7 +157,7 @@ def make_hdulist(lightcurve_generator):
         for curve_type in curve_types:
             table_hdu = make_table_hdu(lightcurve_generator,
                                        instance_count=lightcurve_generator.instance_count,
-                                       band=band, curve_type=curve_type)
+                                       band=band, curve_type=curve_type, use_epoch_cols=use_epoch_cols)
             hdulist.append(table_hdu)
 
     for i in xrange(len(hdulist)):
