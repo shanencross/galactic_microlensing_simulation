@@ -72,11 +72,13 @@ class Lightcurve_generator():
         """
         self.time_step = time_step.to(self.time_unit)
 
+        self.instance_count = instance_count
+
         self.bands = self._init_bands(bands)
 
         self.theoret_event_curves = self._init_theoret_event_curves()
 
-        self.lightcurve_data_instances = self._init_lightcurve_data_instances(instance_count)
+        self.lightcurve_data_instances = self._init_lightcurve_data_instances()
 
     def _init_mags(self, mags):
         if self.star is not None:
@@ -115,9 +117,9 @@ class Lightcurve_generator():
 
         return theoret_event_curves
 
-    def _init_lightcurve_data_instances(self, instance_count):
+    def _init_lightcurve_data_instances(self):
         lightcurve_data_instances = [self._init_lightcurve_data() for i in
-                                     xrange(instance_count)]
+                                     xrange(self.instance_count)]
         return lightcurve_data_instances
 
     def _init_lightcurve_data(self):
@@ -328,7 +330,8 @@ class Lightcurve_generator():
                                  "time_max": self.time_max, "duration": self.duration, "period": self.period,
                                  "night_duration": self.night_duration,
                                  "day_night_duration": self.day_night_duration, "day_duration": self.day_duration,
-                                 "start_time": self.start_time, "time_step": self.time_step, "time_unit": time_unit_name}
+                                 "start_time": self.start_time, "time_step": self.time_step, "time_unit": time_unit_name,
+                                 "instance_count": self.instance_count}
 
         for band in self.bands:
             key = "mag_" + str(band)

@@ -13,7 +13,7 @@ def main():
     #rewrite_fits_file()
     #open_fits_file()
 
-    lightcurve_generator = Lightcurve_generator(mags={"V":25, "B":24})
+    lightcurve_generator = Lightcurve_generator(mags={"V":25, "B":24}, instance_count=5)
     #lightcurve_generator.plot_all()
     """
     for band in curve_data.bands:
@@ -56,6 +56,9 @@ def make_primary_hdu(lightcurver_generator):
         #print "Type: " + str(type(param))
         if isinstance(param, units.Quantity):
             param = param.value
+
+        # HIERARCH prefix needed for astropy to not ouptut warnings for hdu
+        # keys longer than 8 characters
         hdu_key = "HIERARCH " + str(key)
         primary_header[hdu_key] = param
         #print str(param)
@@ -65,8 +68,9 @@ def make_primary_hdu(lightcurver_generator):
 
     return primary_hdu
 
-def make_table_hdu(lightcurve_generator, band="V", curve_type="event"):
-    curve_data = lightcurve_generator.get_curve_data(band=band, curve_type=curve_type)
+def make_table_hdu(lightcurve_generator, instance=0, band="V", curve_type="event"):
+    curve_data = lightcurve_generator.get_curve_data(instance=instance, band=band,
+                                                     curve_type=curve_type)
 
     times = curve_data["times"].value
     mags = curve_data["mags"].value
@@ -83,7 +87,7 @@ def make_table_hdu(lightcurve_generator, band="V", curve_type="event"):
     cols = fits.ColDefs(col_list)
     table_hdu = fits.BinTableHDU.from_columns(cols)
 
-    hdu_name = band + "_" + curve_type
+    hdu_name = band + "_" + curve_type + "_" + str(instance)
     table_hdu.update_ext_name(hdu_name)
 
     return table_hdu
@@ -94,12 +98,14 @@ def make_hdulist(lightcurve_generator):
     hdulist = fits.HDUList([primary_hdu])
     #for band in lightcurve_generator.bands:
 
+    # make HDUs for each curve type of each band
     curve_types=["theoret_event", "event", "baseline"]
     for band in lightcurve_generator.bands:
         for curve_type in curve_types:
-            table_hdu = make_table_hdu(lightcurve_generator, band=band,
-                                       curve_type=curve_type)
-            hdulist.append(table_hdu)
+            for instance in xrange(lightcurve_generator.instance_count):
+                table_hdu = make_table_hdu(lightcurve_generator, instance=instance,
+                                           band=band, curve_type=curve_type)
+                hdulist.append(table_hdu)
 
     for hdu in hdulist:
         print hdu.name
