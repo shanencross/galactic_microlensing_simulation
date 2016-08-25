@@ -1,5 +1,5 @@
 """
-lightcurve_data.py
+lightcurve_generator.py
 @author Shanen Cross
 Purpose: Class representing lightcurve and associated information
 """
@@ -14,20 +14,20 @@ from true_observation_time import get_true_observation_time
 from baseline_lightcurve_simulation import get_gaussian_mag_info
 from baseline_lightcurve_simulation import get_mags
 
-IMPACT_MIN_DEFAULT = 0.1
+IMPACT_MIN_DEFAULT = 0.1 * units.dimensionless_unscaled
 EINSTEIN_TIME_DEFAULT = 10 * units.d
 TIME_MAX_DEFAULT = 15 * units.d
 DURATION_DEFAULT = 2 * TIME_MAX_DEFAULT
 PERIOD_DEFAULT = 17.7 * units.h
 NIGHT_DURATION_DEFAULT = 10 * units.h
 START_TIME_DEFAULT = 0 * units.h
-TIME_STEP_DEFAULT = 1*units.h
+TIME_STEP_DEFAULT = 1 * units.h
 TIME_UNIT_DEFAULT = units.d
 
 DAY_NIGHT_DURATION = 24 * units.h
 
 BAND_DEFAULT = "V"
-MAG_DEFAULT = 25
+MAG_DEFAULT = 25 * units.dimensionless_unscaled
 
 MAGNITUDE_BANDS = ["V", "B", "U", "I", "K", "u", "g", "r", "i", "z"]
 COLOR_BANDS = set(["B-V", "U-B", "V-I", "V-K"])
@@ -36,7 +36,7 @@ BAND_PLOT_COLOR_DICT = {"V": "y", "B": "b", "U": "m", "I": "k", "K": "r",
 
 MAG_ERROR_THRESHOLD = 1
 
-class Lightcurve_data():
+class Lightcurve_generator():
     def __init__(self, star=None, mags=None, bands=None, impact_min=IMPACT_MIN_DEFAULT,
                 einstein_time=EINSTEIN_TIME_DEFAULT, time_max = TIME_MAX_DEFAULT,
                 duration=DURATION_DEFAULT, period=PERIOD_DEFAULT,
@@ -322,12 +322,18 @@ class Lightcurve_data():
     def get_generation_params(self):
         """Return parameters used to generate lightcurves within class."""
 
+        time_unit_name = str(self.time_unit)
+        #print("Time unit name length: {}".format(len(time_unit_name)))
         generation_param_dict = {"einstein_time": self.einstein_time, "impact_min": self.impact_min,
-                                 "time_max": time_max, "duration": self.duration, "period": self.period,
-                                 "bands": self.bands, "night_duration": self.night_duration,
+                                 "time_max": self.time_max, "duration": self.duration, "period": self.period,
+                                 "night_duration": self.night_duration,
                                  "day_night_duration": self.day_night_duration, "day_duration": self.day_duration,
-                                 "start_time": self.start_time, "time_step": self.time_step,
-                                 "star": self.star, "mags": self.mags, "time_unit": self.time_unit}
+                                 "start_time": self.start_time, "time_step": self.time_step, "time_unit": time_unit_name}
+
+        for band in self.bands:
+            key = "mag_" + str(band)
+            generation_param_dict[key] = units.Quantity(self.mags[band])
+
         return generation_param_dict
 
     @staticmethod
@@ -382,7 +388,7 @@ class Lightcurve():
 
         return curve_dict
 
-def test_Lightcurve_data():
+def test_Lightcurve_generator():
     instance_count = 1
     #star = {"V": 25, "B": 20, "U": 22, "I": 23, "K": 28}
 
@@ -392,7 +398,7 @@ def test_Lightcurve_data():
     star = {"B-V": 2.218, "U-B": 1.8, "V-I": 3.377, "V-K":6.737, "V":25.116}
     mags = get_mags(star)
 
-    lightcurve_data = Lightcurve_data(star=star, einstein_time=3*units.d,
+    lightcurve_data = Lightcurve_generator(star=star, einstein_time=3*units.d,
                                       time_max=5 * units.d, duration=10*units.d, period=17.7 / 5* units.h,
                                       time_unit=units.d, instance_count=instance_count,
                                       error_threshold_check=True, gaussian_error_threshold=False)
@@ -412,10 +418,10 @@ def test_Lightcurve_data():
     data = lightcurve_data.get_curve_data(instance=0, band="K")
     print("Data: {}".format(data))
 
-    Lightcurve_data.display_plots()
+    Lightcurve_generator.display_plots()
 
 def main():
-    test_Lightcurve_data()
+    test_Lightcurve_generator()
 
 
 if __name__ == "__main__":

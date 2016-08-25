@@ -3,8 +3,9 @@ fits_practice.py
 @author Shanen Cross
 """
 import numpy as np
+from astropy import units
 from astropy.io import fits
-from lightcurve_data import Lightcurve_data
+from lightcurve_generator import Lightcurve_generator
 
 
 def main():
@@ -12,21 +13,19 @@ def main():
     #rewrite_fits_file()
     #open_fits_file()
 
-    lightcurve_data = Lightcurve_data(mags={"V":25, "B":24})
-    #lightcurve_data.plot_all()
+    lightcurve_generator = Lightcurve_generator(mags={"V":25, "B":24})
+    #lightcurve_generator.plot_all()
     """
     for band in curve_data.bands:
         print curve_data.get_curve_data(band=band, curve_type="baseline")
         print
     """
 
-
-    data = make_fits_table_file(lightcurve_data)
-    return data
-    #lightcurve_data.display_plots()
+    hdulist = make_fits_table_file(lightcurve_generator)
+    return hdulist
+    #lightcurve_generator.display_plots()
 
     pass
-
 
 def open_fits_file():
     hdulist = fits.open("new.fits")
@@ -47,45 +46,67 @@ def rewrite_fits_file():
     hdulist.writeto("new.fits")
     hdulist.close()
 
-def make_fits_table_file(lightcurve_data):
+def make_primary_hdu(lightcurver_generator):
+    generation_params = lightcurver_generator.get_generation_params()
 
-    curve_data = lightcurve_data.get_curve_data(band="V", curve_type="event")
+    primary_header = fits.Header()
+    for key in generation_params:
+        #print key + ":"
+        param = generation_params[key]
+        #print "Type: " + str(type(param))
+        if isinstance(param, units.Quantity):
+            param = param.value
+        hdu_key = "HIERARCH " + str(key)
+        primary_header[hdu_key] = param
+        #print str(param)
+        #print
+
+    primary_hdu = fits.PrimaryHDU(header=primary_header)
+
+    return primary_hdu
+
+def make_fits_table_file(lightcurve_generator):
+    primary_hdu = make_primary_hdu(lightcurve_generator)
+
+    hdulist = fits.HDUList([primary_hdu])
+    #for band in lightcurve_generator.bands:
+
+    curve_data = lightcurve_generator.get_curve_data(band="V", curve_type="event")
 
     times = curve_data["times"].value
     mags = curve_data["mags"].value
     mag_errors = curve_data["mag_errors"].value
+    #print len(times), len(mags), len(mag_errors)
 
-    """
-    a1 = np.array(["NGC1001", "NGC1002", "NGC1003"])
-    a2 = np.array([11.1, 12.3, 15.2])
-    """
+    col1 = fits.Column(name="times", format="20A", array=times)
+    col2 = fits.Column(name="mags", format="E", array=mags)
+    col3 = fits.Column(name="mag_errors", format="E", array=mag_errors)
 
-    a1 = times
-    a2 = mags
-
-    col1 = fits.Column(name="target", format="20A", array=a1)
-    col2 = fits.Column(name="V_mag", format="E", array=a2)
-
-    cols = fits.ColDefs([col1, col2])
+    cols = fits.ColDefs([col1, col2, col3])
     table_hdu = fits.BinTableHDU.from_columns(cols)
+    table_hdu.update_ext_name("mag_V")
+    hdulist.append(table_hdu)
 
-    hdulist = fits.HDUList([table_hdu])
+    print hdulist[0].name
+    print hdulist[1].name
+    print "Einstein time: {}".format(hdulist[0].header["einstein_time"])
+    print repr(hdulist[1].header)
+
+    """
     hdulist[0].header["t_E"] = 15.0
     hdulist[0].header["u_0"] = 0.1
+    """
 
-    return hdulist[0].data
+    print repr(hdulist[1].data)
 
     #print cols.info()
     #print hdulist[0].columns.info()
 
-    #print the_data
-    #print the_data.field(1)
-
     #print repr(hdulist[0].header)
-
 
     #table_hdu.writeto("table.fits")
 
+    return hdulist
 
 def make_fits_file():
     n = np.arange(100.0)
