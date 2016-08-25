@@ -68,7 +68,8 @@ def make_primary_hdu(lightcurver_generator):
 
     return primary_hdu
 
-def make_table_hdu(lightcurve_generator, instance_count=1, band="V", curve_type="event"):
+def make_table_hdu(lightcurve_generator, instance_count=1, band="V",
+                   curve_type="event", use_epoch_cols=False):
 
     # Theoretical event curves will be the same for all instances,
     # so we retrieve only one instance for a theoretical curve
@@ -100,8 +101,8 @@ def make_table_hdu(lightcurve_generator, instance_count=1, band="V", curve_type=
         time_key = "times_" + str(instance)
         mag_key = "mags_" + str(instance)
         mag_error_key = "mag_errors_" + str(instance)
-        
-        col1 = fits.Column(name=time_key, format="20A", array=times)
+
+        col1 = fits.Column(name=time_key, format="E", array=times)
         col2 = fits.Column(name=mag_key, format="E", array=mags)
         col_list.extend([col1, col2])
 
@@ -117,6 +118,30 @@ def make_table_hdu(lightcurve_generator, instance_count=1, band="V", curve_type=
     table_hdu.update_ext_name(hdu_name)
 
     return table_hdu
+
+def convert_to_epoch_columns(curve_data):
+    times = curve_data["times"].value
+    mags = curve_data["mags"].value
+    if curve_data.has_key("mag_errors"):
+        mag_errors = curve_data["mag_errors"].value
+    else:
+        mag_errors = None
+
+    epoch_col_list = []
+    epoch_count = len(times) # should error check that lens of times, mags, and
+                             # mag_errors are the same
+    for i in xrange(epoch_count):
+        if mag_errors:
+            epoch_arr = [times[i], mags[i], mag_errors[i]]
+        else:
+            epoch_arr = [times[i], mags[i]]
+
+        epoch_col = fits.Column(name="epoch_" + str(i), format="E", array=epoch_arr)
+        epoch_col_list.append(epoch_col)
+
+    epoch_cols = fits.ColDefs(epoch_col_list)
+
+    return epoch_cols
 
 def make_hdulist(lightcurve_generator):
     primary_hdu = make_primary_hdu(lightcurve_generator)
@@ -138,6 +163,8 @@ def make_hdulist(lightcurve_generator):
         print hdu.name
         if i > 0:
             print hdu.columns
+
+    print repr(hdulist[0].header)
         #print hdu.data
     #print "Einstein time: {}".format(hdulist[0].header["einstein_time"])
     #print repr(hdulist[1].header)
