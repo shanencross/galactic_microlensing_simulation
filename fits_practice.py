@@ -68,26 +68,52 @@ def make_primary_hdu(lightcurver_generator):
 
     return primary_hdu
 
-def make_table_hdu(lightcurve_generator, instance=0, band="V", curve_type="event"):
-    curve_data = lightcurve_generator.get_curve_data(instance=instance, band=band,
-                                                     curve_type=curve_type)
+def make_table_hdu(lightcurve_generator, instance_count=1, band="V", curve_type="event"):
 
-    times = curve_data["times"].value
-    mags = curve_data["mags"].value
+    # Theoretical event curves will be the same for all instances,
+    # so we retrieve only one instance for a theoretical curve
+    is_theoret_event = (curve_type == "theoret_event")
+    if is_theoret_event:
+        instance_count = 1
 
-    col1 = fits.Column(name="times", format="20A", array=times)
-    col2 = fits.Column(name="mags", format="E", array=mags)
-    col_list = [col1, col2]
+    col_list = []
+    for instance in xrange(instance_count):
+        curve_data = lightcurve_generator.get_curve_data(instance=instance, band=band,
+                                                         curve_type=curve_type)
 
-    if curve_data.has_key("mag_errors"):
-        mag_errors = curve_data["mag_errors"].value
-        col3 = fits.Column(name="mag_errors", format="E", array=mag_errors)
-        col_list.append(col3)
+        times = curve_data["times"].value
+        mags = curve_data["mags"].value
+
+        """
+        # Append instance index number to column names unless this is a
+        # theoretical event curve, which won't have different instances
+        col_names = ["times", "mags", "mag_errors"]
+        if not is_theoret_event:
+            for i in xrange(len(col_names)):
+                col_names[i] = col_names[i] + "_" + str(instance)
+
+        time_key = col_names[0]
+        mag_key = col_names[1]
+        mag_error_key = col_names[2]
+        """
+
+        time_key = "times_" + str(instance)
+        mag_key = "mags_" + str(instance)
+        mag_error_key = "mag_errors_" + str(instance)
+        
+        col1 = fits.Column(name=time_key, format="20A", array=times)
+        col2 = fits.Column(name=mag_key, format="E", array=mags)
+        col_list.extend([col1, col2])
+
+        if curve_data.has_key("mag_errors"):
+            mag_errors = curve_data["mag_errors"].value
+            col3 = fits.Column(name=mag_error_key, format="E", array=mag_errors)
+            col_list.append(col3)
 
     cols = fits.ColDefs(col_list)
     table_hdu = fits.BinTableHDU.from_columns(cols)
 
-    hdu_name = band + "_" + curve_type + "_" + str(instance)
+    hdu_name = band + "_" + curve_type
     table_hdu.update_ext_name(hdu_name)
 
     return table_hdu
@@ -102,13 +128,17 @@ def make_hdulist(lightcurve_generator):
     curve_types=["theoret_event", "event", "baseline"]
     for band in lightcurve_generator.bands:
         for curve_type in curve_types:
-            for instance in xrange(lightcurve_generator.instance_count):
-                table_hdu = make_table_hdu(lightcurve_generator, instance=instance,
-                                           band=band, curve_type=curve_type)
-                hdulist.append(table_hdu)
+            table_hdu = make_table_hdu(lightcurve_generator,
+                                       instance_count=lightcurve_generator.instance_count,
+                                       band=band, curve_type=curve_type)
+            hdulist.append(table_hdu)
 
-    for hdu in hdulist:
+    for i in xrange(len(hdulist)):
+        hdu = hdulist[i]
         print hdu.name
+        if i > 0:
+            print hdu.columns
+        #print hdu.data
     #print "Einstein time: {}".format(hdulist[0].header["einstein_time"])
     #print repr(hdulist[1].header)
 
