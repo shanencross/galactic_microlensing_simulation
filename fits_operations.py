@@ -15,27 +15,6 @@ if not os.path.exists(FITS_DIR):
 FITS_FILENAME = "fits_test.fits"
 FITS_FILEPATH = os.path.join(FITS_DIR, FITS_FILENAME)
 
-"""
-def fits_table_test(use_epoch_cols=False, include_theoret_epoch_cols=True):
-    #make_fits_file()
-    #rewrite_fits_file()
-    #open_fits_file()
-
-    lightcurve_generator = Lightcurve_generator(mags={"V":25, "B":24}, instance_count=5)
-    #lightcurve_generator.plot_all()
-
-    hdulist = make_hdulist(lightcurve_generator, use_epoch_cols=use_epoch_cols,
-                           include_theoret_epoch_cols=include_theoret_epoch_cols)
-
-    lightcurve_generator.plot_all()
-    lightcurve_generator.display_plots()
-    hdulist.writeto(FITS_FILEPATH, clobber=True)
-    return hdulist
-"""
-
-def main():
-    fits_table_test()
-
 def open_fits_file():
     hdulist = fits.open("new.fits")
     for i in xrange(len(hdulist)):
@@ -207,6 +186,10 @@ def make_hdulist(lightcurve_generator, use_epoch_cols=False,
         print hdu.name
         if i > 0:
             print hdu.columns
+            j = 0
+            for column in hdu.columns:
+                print("Length of column {}: {}".format(j, len(column.array)))
+                j += 1
 
     print repr(hdulist[0].header)
     #print hdu.data
@@ -239,6 +222,26 @@ def make_fits_file():
     hdulist.append(hdu_2)
     hdulist.writeto("new.fits")
     hdulist.close()
+
+def main():
+    fits_table_test(use_epoch_cols=False, include_theoret_epoch_cols=True)
+
+def fits_table_test(use_epoch_cols=False, include_theoret_epoch_cols=True):
+    #make_fits_file()
+    #rewrite_fits_file()
+    #open_fits_file()
+
+    from lightcurve_generator import Lightcurve_generator
+    lightcurve_generator = Lightcurve_generator(mags={"V":25, "B":24}, instance_count=5)
+    #lightcurve_generator.plot_all()
+
+    hdulist = make_hdulist(lightcurve_generator, use_epoch_cols=use_epoch_cols,
+                           include_theoret_epoch_cols=include_theoret_epoch_cols)
+
+    lightcurve_generator.plot_all()
+    lightcurve_generator.display_plots()
+    hdulist.writeto(FITS_FILEPATH, clobber=True)
+    return hdulist
 
 if __name__ == "__main__":
     main()
