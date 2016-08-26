@@ -2,13 +2,21 @@
 fits_practice.py
 @author Shanen Cross
 """
+import sys
+import os
 import numpy as np
 from astropy import units
 from astropy.io import fits
+
 from lightcurve_generator import Lightcurve_generator
 
+FITS_DIR = os.path.join(sys.path[0], "fits_files")
+if not os.path.exists(FITS_DIR):
+    os.makedirs(FITS_DIR)
+FITS_FILENAME = "fits_test.fits"
+FITS_FILEPATH = os.path.join(FITS_DIR, FITS_FILENAME)
 
-def main():
+def fits_table_test(use_epoch_cols=False, include_theoret_epoch_cols=True):
     #make_fits_file()
     #rewrite_fits_file()
     #open_fits_file()
@@ -21,11 +29,16 @@ def main():
         print
     """
 
-    hdulist = make_hdulist(lightcurve_generator, use_epoch_cols=False)
-    return hdulist
-    #lightcurve_generator.display_plots()
+    hdulist = make_hdulist(lightcurve_generator, use_epoch_cols=use_epoch_cols,
+                           include_theoret_epoch_cols=include_theoret_epoch_cols)
 
-    pass
+    lightcurve_generator.plot_all()
+    lightcurve_generator.display_plots()
+    hdulist.writeto(FITS_FILEPATH, clobber=True)
+    return hdulist
+
+def main():
+    fits_table_test()
 
 def open_fits_file():
     hdulist = fits.open("new.fits")
@@ -69,51 +82,62 @@ def make_primary_hdu(lightcurver_generator):
     return primary_hdu
 
 def make_table_hdu(lightcurve_generator, instance_count=1, band="V",
-                   curve_type="event", use_epoch_cols=False):
+                   curve_type="event", use_epoch_cols=False, include_theoret_epoch_cols=True):
 
     # Theoretical event curves will be the same for all instances,
     # so we retrieve only one instance for a theoretical curve
     is_theoret_event = (curve_type == "theoret_event")
     if is_theoret_event:
         instance_count = 1
+        if not include_theoret_epoch_cols:
+            use_epoch_cols = False
 
-    col_list = []
-    for instance in xrange(instance_count):
-        curve_data = lightcurve_generator.get_curve_data(instance=instance, band=band,
-                                                         curve_type=curve_type)
-        if use_epoch_cols:
-            col_list_extension = convert_to_epoch_columns(curve_data)
-            col_list.extend(col_list_extension)
-            continue
+    if use_epoch_cols:
+        arr_list = []
+        for instance in xrange(instance_count):
+            curve_data = lightcurve_generator.get_curve_data(instance=instance, band=band,
+                                                             curve_type=curve_type)
+            arr_list_extension = convert_to_epoch_columns(curve_data)
+            if not arr_list:
+                arr_list = arr_list_extension
+            else:
+                arr_list = [(arr_list[i] + arr_list_extension[i]) for i in xrange(len(arr_list))]
 
-        times = curve_data["times"].value
-        mags = curve_data["mags"].value
+        col_list = [fits.Column(name=("epoch_" + str(i)), format="E", array=arr_list[i]) for i in xrange(len(arr_list))]
 
-        """
-        # Append instance index number to column names unless this is a
-        # theoretical event curve, which won't have different instances
-        col_names = ["times", "mags", "mag_errors"]
-        if not is_theoret_event:
-            for i in xrange(len(col_names)):
-                col_names[i] = col_names[i] + "_" + str(instance)
+    else:
+        col_list = []
+        for instance in xrange(instance_count):
+            curve_data = lightcurve_generator.get_curve_data(instance=instance, band=band,
+                                                             curve_type=curve_type)
+            times = curve_data["times"].value
+            mags = curve_data["mags"].value
 
-        time_key = col_names[0]
-        mag_key = col_names[1]
-        mag_error_key = col_names[2]
-        """
+            """
+            # Append instance index number to column names unless this is a
+            # theoretical event curve, which won't have different instances
+            col_names = ["times", "mags", "mag_errors"]
+            if not is_theoret_event:
+                for i in xrange(len(col_names)):
+                    col_names[i] = col_names[i] + "_" + str(instance)
 
-        time_key = "times_" + str(instance)
-        mag_key = "mags_" + str(instance)
-        mag_error_key = "mag_errors_" + str(instance)
+            time_key = col_names[0]
+            mag_key = col_names[1]
+            mag_error_key = col_names[2]
+            """
 
-        col1 = fits.Column(name=time_key, format="E", array=times)
-        col2 = fits.Column(name=mag_key, format="E", array=mags)
-        col_list.extend([col1, col2])
+            time_key = "times_" + str(instance)
+            mag_key = "mags_" + str(instance)
+            mag_error_key = "mag_errors_" + str(instance)
 
-        if curve_data.has_key("mag_errors"):
-            mag_errors = curve_data["mag_errors"].value
-            col3 = fits.Column(name=mag_error_key, format="E", array=mag_errors)
-            col_list.append(col3)
+            col1 = fits.Column(name=time_key, format="E", array=times)
+            col2 = fits.Column(name=mag_key, format="E", array=mags)
+            col_list.extend([col1, col2])
+
+            if curve_data.has_key("mag_errors"):
+                mag_errors = curve_data["mag_errors"].value
+                col3 = fits.Column(name=mag_error_key, format="E", array=mag_errors)
+                col_list.append(col3)
 
     cols = fits.ColDefs(col_list)
     table_hdu = fits.BinTableHDU.from_columns(cols)
@@ -131,7 +155,8 @@ def convert_to_epoch_columns(curve_data):
     else:
         mag_errors = None
 
-    epoch_col_list = []
+    #epoch_col_list = []
+    epoch_arr_list = []
     epoch_count = len(times) # should error check that lens of times, mags, and
                              # mag_errors are the same
     for i in xrange(epoch_count):
@@ -140,12 +165,15 @@ def convert_to_epoch_columns(curve_data):
         else:
             epoch_arr = [times[i], mags[i]]
 
-        epoch_col = fits.Column(name="epoch_" + str(i), format="E", array=epoch_arr)
-        epoch_col_list.append(epoch_col)
+        #epoch_col = fits.Column(name="epoch_" + str(i), format="E", array=epoch_arr)
+        #epoch_col_list.append(epoch_col)
+        epoch_arr_list.append(epoch_arr)
 
-    return epoch_col_list
+    #return epoch_col_list
+    return epoch_arr_list
 
-def make_hdulist(lightcurve_generator, use_epoch_cols=False):
+def make_hdulist(lightcurve_generator, use_epoch_cols=False,
+                 include_theoret_epoch_cols=True):
     primary_hdu = make_primary_hdu(lightcurve_generator)
 
     hdulist = fits.HDUList([primary_hdu])
@@ -157,7 +185,8 @@ def make_hdulist(lightcurve_generator, use_epoch_cols=False):
         for curve_type in curve_types:
             table_hdu = make_table_hdu(lightcurve_generator,
                                        instance_count=lightcurve_generator.instance_count,
-                                       band=band, curve_type=curve_type, use_epoch_cols=use_epoch_cols)
+                                       band=band, curve_type=curve_type, use_epoch_cols=use_epoch_cols,
+                                       include_theoret_epoch_cols=include_theoret_epoch_cols)
             hdulist.append(table_hdu)
 
     for i in xrange(len(hdulist)):
@@ -167,7 +196,7 @@ def make_hdulist(lightcurve_generator, use_epoch_cols=False):
             print hdu.columns
 
     print repr(hdulist[0].header)
-        #print hdu.data
+    #print hdu.data
     #print "Einstein time: {}".format(hdulist[0].header["einstein_time"])
     #print repr(hdulist[1].header)
 
@@ -197,7 +226,6 @@ def make_fits_file():
     hdulist.append(hdu_2)
     hdulist.writeto("new.fits")
     hdulist.close()
-
 
 if __name__ == "__main__":
     main()
