@@ -3,6 +3,8 @@ lightcurve_generator.py
 @author Shanen Cross
 Purpose: Class representing lightcurve and associated information
 """
+import sys
+import os
 import numpy as np
 import matplotlib.pyplot as plt
 from astropy import units
@@ -13,6 +15,12 @@ from lightcurve_simulation import get_magnified_mag
 from true_observation_time import get_true_observation_time
 from baseline_lightcurve_simulation import get_gaussian_mag_info
 from baseline_lightcurve_simulation import get_mags
+from fits_operations import make_hdulist
+
+DEFAULT_DIR = os.path.join(sys.path[0], "fits_files")
+if not os.path.exists(DEFAULT_DIR):
+    os.makedirs(DEFAULT_DIR)
+DEFAULT_FILENAME = "lightcurve_gen.fits"
 
 IMPACT_MIN_DEFAULT = 0.1 * units.dimensionless_unscaled
 EINSTEIN_TIME_DEFAULT = 10 * units.d
@@ -314,7 +322,7 @@ class Lightcurve_generator():
             elif curve_type == "baseline":
                 curve = curve_collection.baseline_curve
             else:
-                print("Warning: Requested even type {} is not valid.".format(curve_type))
+                print("Warning: Requested event type {} is not valid.".format(curve_type))
                 print("Returning empty dictionary for curve data.")
                 return {}
 
@@ -334,10 +342,24 @@ class Lightcurve_generator():
                                  "instance_count": self.instance_count}
 
         for band in self.bands:
-            key = "mag_" + str(band)
+            key = "baseline_mag_" + str(band)
             generation_param_dict[key] = units.Quantity(self.mags[band])
 
         return generation_param_dict
+
+    def write_to_file(self, filepath=None, filename=DEFAULT_FILENAME, fits_dir=DEFAULT_DIR,
+                      clobber=False, use_epoch_cols=False, include_theoret_epoch_cols=True):
+        if filepath is None:
+            filepath = os.path.join(fits_dir, filename)
+
+        hdulist = make_hdulist(self, use_epoch_cols=use_epoch_cols,
+                               include_theoret_epoch_cols=include_theoret_epoch_cols)
+        print("Writing lightcurver generator to FITS file at path: {}".format(filepath))
+        print("Flags:")
+        print ("use_epoch_cols: {!s:<10} include_theoret_epoch_cols: {}".format(use_epoch_cols,
+                                                                              include_theoret_epoch_cols))
+        print("clobber: {}".format(clobber))
+        hdulist.writeto(filepath, clobber=clobber)
 
     @staticmethod
     def display_plots():
@@ -392,7 +414,7 @@ class Lightcurve():
         return curve_dict
 
 def test_Lightcurve_generator():
-    instance_count = 1
+    instance_count = 5
     #star = {"V": 25, "B": 20, "U": 22, "I": 23, "K": 28}
 
     #star_values = [2.218, 1.8, 3.377, 6.737, 25.116]
@@ -401,31 +423,38 @@ def test_Lightcurve_generator():
     star = {"B-V": 2.218, "U-B": 1.8, "V-I": 3.377, "V-K":6.737, "V":25.116}
     mags = get_mags(star)
 
-    lightcurve_data = Lightcurve_generator(star=star, einstein_time=3*units.d,
+    """lightcurve_generator = Lightcurve_generator(star=star, einstein_time=3*units.d,
                                       time_max=5 * units.d, duration=10*units.d, period=17.7 / 5* units.h,
                                       time_unit=units.d, instance_count=instance_count,
                                       error_threshold_check=True, gaussian_error_threshold=False)
+    """
 
-    lightcurve_data.plot_all(error_bars=True)
+    #lightcurve_generator = Lightcurve_generator(star=star, instance_count=instance_count)
+    lightcurve_generator = Lightcurve_generator(mags={"V":24, "B":25}, instance_count=5)
 
-    print lightcurve_data.duration
-    for band in lightcurve_data.bands:
+    lightcurve_generator.plot_all(error_bars=True)
+
+    print lightcurve_generator.duration
+    for band in lightcurve_generator.bands:
         print band + ":", BAND_PLOT_COLOR_DICT[band]
 
     print mags
-    print lightcurve_data.star.keys()
-    print lightcurve_data.mags
-    print lightcurve_data.bands
-    #lightcurve_data.plot_theoret_event_curve("V")
+    #print lightcurve_generator.star.keys()
+    print lightcurve_generator.mags
+    print lightcurve_generator.bands
+    #lightcurve_generator.plot_theoret_event_curve("V")
 
-    data = lightcurve_data.get_curve_data(instance=0, band="K")
-    print("Data: {}".format(data))
+    #data = lightcurve_generator.get_curve_data(instance=0, band="K")
+    #print("Data: {}".format(data))
 
+    #fits_operations.make_hdulist(lightcurve_generator, True, True)
+    lightcurve_generator.write_to_file(use_epoch_cols=True,
+                                       include_theoret_epoch_cols=False,
+                                       clobber=True)
     Lightcurve_generator.display_plots()
 
 def main():
     test_Lightcurve_generator()
-
 
 if __name__ == "__main__":
     main()

@@ -1,5 +1,5 @@
 """
-fits_practice.py
+fits_operations.py
 @author Shanen Cross
 """
 import sys
@@ -7,8 +7,7 @@ import os
 import numpy as np
 from astropy import units
 from astropy.io import fits
-
-from lightcurve_generator import Lightcurve_generator
+#from lightcurve_generator import Lightcurve_generator
 
 FITS_DIR = os.path.join(sys.path[0], "fits_files")
 if not os.path.exists(FITS_DIR):
@@ -16,6 +15,7 @@ if not os.path.exists(FITS_DIR):
 FITS_FILENAME = "fits_test.fits"
 FITS_FILEPATH = os.path.join(FITS_DIR, FITS_FILENAME)
 
+"""
 def fits_table_test(use_epoch_cols=False, include_theoret_epoch_cols=True):
     #make_fits_file()
     #rewrite_fits_file()
@@ -23,11 +23,6 @@ def fits_table_test(use_epoch_cols=False, include_theoret_epoch_cols=True):
 
     lightcurve_generator = Lightcurve_generator(mags={"V":25, "B":24}, instance_count=5)
     #lightcurve_generator.plot_all()
-    """
-    for band in curve_data.bands:
-        print curve_data.get_curve_data(band=band, curve_type="baseline")
-        print
-    """
 
     hdulist = make_hdulist(lightcurve_generator, use_epoch_cols=use_epoch_cols,
                            include_theoret_epoch_cols=include_theoret_epoch_cols)
@@ -36,6 +31,7 @@ def fits_table_test(use_epoch_cols=False, include_theoret_epoch_cols=True):
     lightcurve_generator.display_plots()
     hdulist.writeto(FITS_FILEPATH, clobber=True)
     return hdulist
+"""
 
 def main():
     fits_table_test()
@@ -97,6 +93,12 @@ def make_table_hdu(lightcurve_generator, instance_count=1, band="V",
         for instance in xrange(instance_count):
             curve_data = lightcurve_generator.get_curve_data(instance=instance, band=band,
                                                              curve_type=curve_type)
+             # Skip band if time or mag list is empty or None, meaning it was excluded
+             # excluded by the error threshold check
+            if not curve_data["times"] or not curve_data["mags"]:
+                print("Skipping band {}, curve_type {}, instance {}".format(band, curve_type, instance))
+                continue
+
             arr_list_extension = convert_to_epoch_columns(curve_data)
             if not arr_list:
                 arr_list = arr_list_extension
@@ -110,6 +112,12 @@ def make_table_hdu(lightcurve_generator, instance_count=1, band="V",
         for instance in xrange(instance_count):
             curve_data = lightcurve_generator.get_curve_data(instance=instance, band=band,
                                                              curve_type=curve_type)
+             # Skip band if time or mag list is empty or None, meaning it was
+             # excluded by the error threshold check
+            if not curve_data["times"] or not curve_data["mags"]:
+                print("Skipping band {}, curve_type {}, instance {}".format(band, curve_type, instance))
+                continue
+
             times = curve_data["times"].value
             mags = curve_data["mags"].value
 
@@ -138,6 +146,10 @@ def make_table_hdu(lightcurve_generator, instance_count=1, band="V",
                 mag_errors = curve_data["mag_errors"].value
                 col3 = fits.Column(name=mag_error_key, format="E", array=mag_errors)
                 col_list.append(col3)
+
+    # If list is empty due to band skipping, don't make a table hdu and return None
+    if not col_list:
+        return None
 
     cols = fits.ColDefs(col_list)
     table_hdu = fits.BinTableHDU.from_columns(cols)
@@ -187,7 +199,8 @@ def make_hdulist(lightcurve_generator, use_epoch_cols=False,
                                        instance_count=lightcurve_generator.instance_count,
                                        band=band, curve_type=curve_type, use_epoch_cols=use_epoch_cols,
                                        include_theoret_epoch_cols=include_theoret_epoch_cols)
-            hdulist.append(table_hdu)
+            if table_hdu is not None:
+                hdulist.append(table_hdu)
 
     for i in xrange(len(hdulist)):
         hdu = hdulist[i]
