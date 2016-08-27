@@ -366,6 +366,38 @@ class Lightcurve_generator():
         plt.gca().invert_yaxis()
         plt.show()
 
+
+    """
+    Initilization parameters for reference:
+    star=None, mags=None, bands=None, impact_min=IMPACT_MIN_DEFAULT,
+                einstein_time=EINSTEIN_TIME_DEFAULT, time_max = TIME_MAX_DEFAULT,
+                duration=DURATION_DEFAULT, period=PERIOD_DEFAULT,
+                night_duration=NIGHT_DURATION_DEFAULT,
+                start_time=START_TIME_DEFAULT, time_step=TIME_STEP_DEFAULT,
+                time_unit=TIME_UNIT_DEFAULT, instance_count=1,
+                error_threshold_check=True, gaussian_error_threshold=False
+    """
+
+    @staticmethod
+    def load_file(filepath):
+        pass
+        hdulist = fits.open(filepath)
+        header = hdulist[0].header
+
+        time_unit = units.Unit(header["time_unit"])
+        impact_min = header["impact_min"] * units.dimensionless_unscaled
+        einstein_time = header["einstein_time"] * time_unit
+        time_max = header["time_max"] * time_unit
+        duration = header["duration"] * time_unit
+        start_time = header["start_time"] * time_unit
+        time_step = header["time_step"] * time_step
+        night_duration = header["night_duration"] * time_unit
+        day_night_duration = header["day_night_duration"] * time_unit
+        instance_count = header["instance_count"]
+        period = header["period"] * time_unit
+
+
+
 class Lightcurve_collection():
     def __init__(self, baseline_curve, event_curve,
                  theoret_event_curve=None, band=None):
@@ -429,8 +461,8 @@ def test_Lightcurve_generator():
                                       error_threshold_check=True, gaussian_error_threshold=False)
     """
 
-    #lightcurve_generator = Lightcurve_generator(star=star, instance_count=instance_count)
-    lightcurve_generator = Lightcurve_generator(mags={"V":24, "B":25}, instance_count=5)
+    lightcurve_generator = Lightcurve_generator(star=star, instance_count=instance_count)
+    #lightcurve_generator = Lightcurve_generator(mags={"V":24, "B":25}, instance_count=5)
 
     lightcurve_generator.plot_all(error_bars=True)
 
