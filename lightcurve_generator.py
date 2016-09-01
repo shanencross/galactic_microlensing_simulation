@@ -461,7 +461,8 @@ def test_Lightcurve_generator():
                                       error_threshold_check=True, gaussian_error_threshold=False)
     """
 
-    lightcurve_generator = Lightcurve_generator(star=star, instance_count=instance_count)
+    lightcurve_generator = Lightcurve_generator(star=star, instance_count=instance_count,
+                                                period=PERIOD_DEFAULT/2)
     #lightcurve_generator = Lightcurve_generator(mags={"V":24, "B":25}, instance_count=5)
 
     lightcurve_generator.plot_all(error_bars=True)
@@ -480,7 +481,7 @@ def test_Lightcurve_generator():
     #print("Data: {}".format(data))
 
     #fits_operations.make_hdulist(lightcurve_generator, True, True)
-    lightcurve_generator.write_to_file(use_epoch_cols=True,
+    lightcurve_generator.write_to_file(use_epoch_cols=False,
                                        include_theoret_epoch_cols=False,
                                        clobber=True)
     Lightcurve_generator.display_plots()
